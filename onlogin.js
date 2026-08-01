@@ -221,7 +221,7 @@ export default async function onlogin(accessToken) {
 	})).json();
 
 	// clearTimeout
-	const timeout = setTimeout(() => window.alert("Taking a little too long to connect, maybe try refreshing?"), 67_6767);
+	const timeout = setTimeout(() => window.alert("Taking a little too long to connect, maybe try refreshing?"), 67_676.7);
 	let answerDownloadUrl;
 	while (true) {
 		const { artifacts } = await (await fetch(`${repoEndpoint}/actions/runs/${workflow_run_id}/artifacts`, { headers })).json();
