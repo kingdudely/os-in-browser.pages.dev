@@ -17,7 +17,7 @@ function triggerImmersiveMode() {
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const screenshare = document.getElementById("screenshare");
 const oauthDialog = document.getElementById("oauth-dialog");
-const sharedBytes = new Uint8Array(12);
+const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
 
 oauthDialog.showModal();
@@ -60,20 +60,18 @@ export default async function onlogin(accessToken) {
 		event.preventDefault();
 		if (pointerMovementChannel.readyState !== "open") return;
 
-		let packetSize;
+		sharedView.setUint8(0, document.pointerLockElement ? 1 : 0);
 		if (document.pointerLockElement) {
-			sharedView.setInt16(0, event.movementX, true);
-			sharedView.setInt16(2, event.movementY, true);
-			packetSize = 4;
+			sharedView.setInt32(1, event.movementX, true);
+			sharedView.setInt32(5, event.movementY, true);
 			console.log("relative", event.movementX, event.movementY)
 		} else {
-			sharedView.setUint32(0, event.clientX, true);
-			sharedView.setUint32(4, event.clientY, true);
-			packetSize = 8;
+			sharedView.setUint32(1, event.clientX, true);
+			sharedView.setUint32(5, event.clientY, true);
 			console.log("absolute", event.clientX, event.clientY)
 		}
 		
-		pointerMovementChannel.send(sharedBytes.subarray(0, packetSize));
+		pointerMovementChannel.send(sharedBytes.subarray(0, 9));
 	});
 
 	const pointerClickChannel = peer.createDataChannel("pointer-click", {
@@ -158,7 +156,6 @@ export default async function onlogin(accessToken) {
 	screenResizeChannel.addEventListener("open", onResize); // So it automatically resizes in the beginning
 	window.addEventListener("resize", onResize); // ResizeObserver 
 
-	// Not implemented.
 	const pointerScrollChannel = peer.createDataChannel("pointer-scroll", {
 		ordered: false,
 		maxRetransmits: 0,
@@ -170,19 +167,11 @@ export default async function onlogin(accessToken) {
 		event.preventDefault();
 		if (pointerScrollChannel.readyState !== "open") return;
 
-		const multiplier = (function() {
-			switch (event.deltaMode) {
-				default: console.warn("Unsupported deltaMode, will use DOM_DELTA_PIXEL");
-				case event.DOM_DELTA_PIXEL: return 1;
-				case event.DOM_DELTA_LINE: return 20; // accurate enough
-				case event.DOM_DELTA_PAGE: return window.innerHeight;
-			}
-		})();
-
-		sharedView.setFloat32(0, event.deltaX * multiplier, true);
-		sharedView.setFloat32(4, event.deltaY * multiplier, true);
-		sharedView.setFloat32(8, event.deltaZ * multiplier, true); // unsupported in pynput
-		pointerScrollChannel.send(sharedBytes.subarray(0, 12));
+		sharedView.setUint8(0, event.deltaMode);
+		sharedView.setFloat32(1, event.deltaX * multiplier, true);
+		sharedView.setFloat32(5, event.deltaY * multiplier, true);
+		sharedView.setFloat32(9, event.deltaZ * multiplier, true); // unsupported in pynput
+		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	});
 
 	await peer.setLocalDescription();
