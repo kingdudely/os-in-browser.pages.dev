@@ -168,9 +168,9 @@ export default async function onlogin(accessToken) {
 		if (pointerScrollChannel.readyState !== "open") return;
 
 		sharedView.setUint8(0, event.deltaMode);
-		sharedView.setFloat32(1, event.deltaX * multiplier, true);
-		sharedView.setFloat32(5, event.deltaY * multiplier, true);
-		sharedView.setFloat32(9, event.deltaZ * multiplier, true); // unsupported in pynput
+		sharedView.setFloat32(1, event.deltaX, true);
+		sharedView.setFloat32(5, event.deltaY, true);
+		sharedView.setFloat32(9, event.deltaZ, true); // unsupported in pynput
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	});
 
