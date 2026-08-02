@@ -1,10 +1,16 @@
 import codeMap from "./code-map.json" with { type: "json" };
 
-function triggerImmersiveMode() {
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') {
+		navigator.wakeLock?.request('screen');
+	}
+});
+
+function triggerImmersiveMode() {	
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
 		document.body.requestFullscreen({ // target, await
 			"navigationUI": "hide"
-		}).catch(() => {});
+		}).then(() => navigator.keyboard?.lock()).catch(() => {});
 	};
 
 	if (!document.pointerLockElement) {
@@ -55,7 +61,7 @@ export default async function onlogin(accessToken) {
 		id: 0
 	});
 
-	// pointerrawupdate
+	// pointerrawupdate, getCoalescedEvents
 	window.addEventListener("pointermove", (event) => {
 		event.preventDefault();
 		if (pointerMovementChannel.readyState !== "open") return;
