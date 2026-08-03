@@ -1,4 +1,4 @@
-const sleep = (milliseconds) => await new Promise((resolve) => setTimeout(resolve, milliseconds));
+const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 self.addEventListener("message", async (event) => {
 	const { repoEndpoint, headers, workflowRunId } = event.data;
