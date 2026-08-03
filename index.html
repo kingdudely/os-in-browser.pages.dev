@@ -11,11 +11,11 @@
 
 	<dialog id="main-dialog">
 		<form id="oauth">
-			<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF">
-			<input type="hidden" name="redirect_uri" value="https://kingdudely.github.io/os-in-browser/">
-			<input type="hidden" name="client_secret" value="e1acb40a1999c11881db8be8a8ae26f2def89602">
-			<input type="hidden" name="scope" value="public_repo workflow">
-			<input type="hidden" name="code">
+			<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF" required>
+			<input type="hidden" name="redirect_uri" value="https://kingdudely.github.io/os-in-browser/" required>
+			<input type="hidden" name="client_secret" value="e1acb40a1999c11881db8be8a8ae26f2def89602" required>
+			<input type="hidden" name="scope" value="public_repo workflow" required>
+			<input type="hidden" name="code" required>
 
 			<button type="submit" formaction="https://github.com/login/oauth/authorize" formmethod="GET">Download a new credential file</button>
 			<button type="submit" id="download-access-token" formaction="https://github.com/login/oauth/access_token" formmethod="POST" hidden></button>
@@ -25,11 +25,11 @@
 
 		<form id="start-runner">
 			<label for="credential-file">Login with a credential file:</label>
-			<input type="file" name="credential-file" aria-label="Credential file" title="Credential file">
+			<input type="file" name="credential-file" aria-label="Credential file" title="Credential file" required>
 
 			<br />
 
-			<select name="os">
+			<select name="os" required>
 				<option value="windows-latest">windows-latest</option>
 				<option value="macos-latest">macos-latest</option>
 				<option value="ubuntu-latest">ubuntu-latest</option>
