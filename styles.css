@@ -13,7 +13,7 @@ html, body, #screenshare {
 
 #screenshare {
 	object-fit: contain; 
-	image-rendering: pixelated; 
+	/* image-rendering: pixelated;  */
 	contain: strict;
 	touch-action: none;
 	cursor: none;
