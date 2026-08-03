@@ -53,7 +53,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 	event.preventDefault();
 	mainDialog.close();
 
-	const form = new FormData(event.target);
+	const formData = new FormData(event.target);
 	const os = formData.get("os");
 	const credentialFile = formData.get("credential-file");
 	if (!credentialFile) return;
