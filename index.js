@@ -40,7 +40,6 @@ function triggerImmersiveMode() {
 	}
 }
 
-const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
@@ -231,11 +230,11 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		"Content-Type": "application/json"
 	};
 
-	const { default_branch } = await (await fetch(repoEndpoint, { headers })).json();
-	const { workflow_run_id } = await (await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
+	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
+	const workflowRunId = (await (await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
 		headers,
 		"body": JSON.stringify({
-			"ref": default_branch,
+			"ref": branch,
 			"return_run_details": true,
 			"inputs": {
 				"os": os,
@@ -243,21 +242,25 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 			}
 		}),
 		"method": "POST",
-	})).json();
+	})).json()).workflow_run_id;
 
 	// clearTimeout
-	const timeout = setTimeout(() => window.alert("Taking a little too long to connect, maybe try refreshing?"), 67_676.7);
-	let answerDownloadUrl;
-	while (true) {
-		const { artifacts } = await (await fetch(`${repoEndpoint}/actions/runs/${workflow_run_id}/artifacts`, { headers })).json();
-		answerDownloadUrl = artifacts?.find((artifact) => artifact.name === "answer.txt")?.archive_download_url;
-		if (answerDownloadUrl) {
-			clearTimeout(timeout);
-			break;
-		}
 
-		await sleep(1000);
-	}
+	const answerDownloadUrl = await new Promise((resolve) => {
+		const answerPoller = new Worker("answer-poller.js");
+		answerPoller.postMessage({ repoEndpoint, headers, workflowRunId });
+
+		const timeout = setTimeout(() => {
+			window.alert("Taking a little too long to connect, maybe try refreshing?");
+		}, 67_676.7);
+
+		answerPoller.addEventListener("message", function onMessage(event) {
+			answerPoller.removeEventListener("message", onMessage);
+			clearTimeout(timeout);
+			resolve(event.data.answerDownloadUrl);
+			answerPoller.terminate(); // done, clean up
+		});
+	});
 
 	const answer = await (await fetch(answerDownloadUrl, { headers })).text();
 
