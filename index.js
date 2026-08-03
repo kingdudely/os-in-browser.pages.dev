@@ -18,10 +18,44 @@ if (code) {
 	// return
 }
 
-import onlogin from "./onlogin.js";
+import codeMap from "./code-map.json" with { type: "json" };
 
-document.getElementById("credential-file").addEventListener("change", async (event) => {
-	const credentialFile = event.target.files[0];
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') {
+		navigator.wakeLock?.request('screen');
+	}
+});
+
+function triggerImmersiveMode() {	
+	if (document.fullscreenEnabled && !document.fullscreenElement) {
+		document.body.requestFullscreen({ // target, await
+			"navigationUI": "hide"
+		}).then(() => navigator.keyboard?.lock()).catch(() => {});
+	};
+
+	if (!document.pointerLockElement) {
+		document.body.requestPointerLock({ // target, await
+			"unadjustedMovement": true
+		}).catch(() => {});
+	}
+}
+
+const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const screenshare = document.getElementById("screenshare");
+const mainDialog = document.getElementById("main-dialog");
+const sharedBytes = new Uint8Array(13);
+const sharedView = new DataView(sharedBytes.buffer);
+
+mainDialog.showModal();
+mainDialog.addEventListener('cancel', (event) => event.preventDefault());
+
+document.getElementById("start-runner").addEventListener("submit", async (event) => {
+	event.preventDefault();
+	mainDialog.close();
+
+	const form = new FormData(event.target);
+	const os = formData.get("os");
+	const credentialFile = formData.get("credential-file");
 	if (!credentialFile) return;
 
 	const accessToken = new URLSearchParams(await credentialFile.text()).get("access_token");
@@ -30,5 +64,205 @@ document.getElementById("credential-file").addEventListener("change", async (eve
 		return;
 	}
 
-	onlogin(accessToken);
-});
+	const peer = new RTCPeerConnection({
+		iceServers: [
+			{ urls: "stun:stun.l.google.com:19302" }
+		]
+	});
+
+	peer.addEventListener("connectionstatechange", () => {
+		console.log(`ICE connection state: ${peer.connectionState}`);
+		if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
+			mainDialog.showModal();
+		}
+	});
+
+	peer.addEventListener("track", (event) => {
+		screenshare.srcObject = event.streams[0];
+		screenshare.play().catch(console.warn);
+	});
+
+	peer.addTransceiver("video", {
+		direction: "recvonly"
+	});
+
+	const pointerMovementChannel = peer.createDataChannel("pointer-movement", {
+		ordered: false,
+		maxRetransmits: 0,
+		negotiated: true,
+		id: 0
+	});
+
+	// pointerrawupdate, getCoalescedEvents
+	window.addEventListener("pointermove", (event) => {
+		event.preventDefault();
+		if (pointerMovementChannel.readyState !== "open") return;
+
+		sharedView.setUint8(0, document.pointerLockElement ? 1 : 0);
+		if (document.pointerLockElement) {
+			sharedView.setInt32(1, event.movementX, true);
+			sharedView.setInt32(5, event.movementY, true);
+		} else {
+			sharedView.setUint32(1, event.clientX, true);
+			sharedView.setUint32(5, event.clientY, true);
+		}
+		
+		pointerMovementChannel.send(sharedBytes.subarray(0, 9));
+	});
+
+	const pointerClickChannel = peer.createDataChannel("pointer-click", {
+		ordered: true,
+		negotiated: true,
+		id: 1
+	});
+
+	window.addEventListener("pointerdown", (event) => {
+		event.preventDefault();
+		if (pointerClickChannel.readyState !== "open") return;
+		triggerImmersiveMode();
+
+		sharedView.setUint8(0, 1); // isDown
+		sharedView.setUint8(1, event.button);
+		pointerClickChannel.send(sharedBytes.subarray(0, 2));
+	});
+
+	window.addEventListener("pointerup", (event) => {
+		event.preventDefault();
+		if (pointerClickChannel.readyState !== "open") return;
+
+		sharedView.setUint8(0, 0); // isDown
+		sharedView.setUint8(1, event.button);
+		pointerClickChannel.send(sharedBytes.subarray(0, 2));
+	});
+
+	const keyboardTypeChannel = peer.createDataChannel("keyboard-type", {
+		ordered: true,
+		negotiated: true,
+		id: 2
+	});
+
+	// Could do tabindex=0 but then they can just press tab again - also, this is more reliable, and screenshare is basically the whole screen anyways.
+	window.addEventListener("keydown", (event) => {
+		event.preventDefault();
+		if (keyboardTypeChannel.readyState !== "open" || event.repeat) return;
+		triggerImmersiveMode();
+
+		if (!(event.code in codeMap)) {
+			console.warn(`"${event.code}" does not have a corresponding value in code-map.json`);
+			return;
+		}
+
+		sharedView.setUint8(0, 1); // isDown
+		sharedView.setUint8(1, codeMap[event.code]);
+
+		keyboardTypeChannel.send(sharedBytes.subarray(0, 2));
+	});
+
+	window.addEventListener("keyup", (event) => {
+		event.preventDefault();
+		if (keyboardTypeChannel.readyState !== "open") return;
+
+		if (!(event.code in codeMap)) {
+			console.warn(`"${event.code}" does not have a corresponding value in code-map.json`);
+			return;
+		}
+
+		sharedView.setUint8(0, 0); // isDown
+		sharedView.setUint8(1, codeMap[event.code]);
+
+		keyboardTypeChannel.send(sharedBytes.subarray(0, 2));
+	})
+
+	// Not implemented.
+	const screenResizeChannel = peer.createDataChannel("screen-resize", {
+		ordered: false,
+		negotiated: true,
+		id: 3
+	});
+
+	function onResize() {
+		if (screenResizeChannel.readyState !== "open") return;
+		console.log("Sending screen resize packet...");
+
+		sharedView.setUint32(0, window.innerWidth, true);
+		sharedView.setUint32(4, window.innerHeight, true);
+		screenResizeChannel.send(sharedBytes.subarray(0, 8));
+	}
+
+	screenResizeChannel.addEventListener("open", onResize); // So it automatically resizes in the beginning
+	window.addEventListener("resize", onResize); // ResizeObserver 
+
+	const pointerScrollChannel = peer.createDataChannel("pointer-scroll", {
+		ordered: false,
+		maxRetransmits: 0,
+		negotiated: true,
+		id: 4
+	});
+
+	window.addEventListener("wheel", (event) => {
+		event.preventDefault();
+		if (pointerScrollChannel.readyState !== "open") return;
+
+		sharedView.setUint8(0, event.deltaMode);
+		sharedView.setFloat32(1, event.deltaX, true);
+		sharedView.setFloat32(5, event.deltaY, true);
+		sharedView.setFloat32(9, event.deltaZ, true); // unsupported in pynput
+		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
+	});
+
+	await peer.setLocalDescription();
+
+	await new Promise((resolve) => {
+		if (peer.iceGatheringState === "complete") {
+			resolve();
+		} else {
+			peer.addEventListener("icegatheringstatechange", function onStateChange() {
+				if (peer.iceGatheringState === "complete") {
+					peer.removeEventListener("icegatheringstatechange", onStateChange);
+					resolve();
+				}
+			});
+		}
+	});
+
+	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
+	const headers = {
+		"Authorization": `token ${accessToken}`,
+		"Content-Type": "application/json"
+	};
+
+	const { default_branch } = await (await fetch(repoEndpoint, { headers })).json();
+	const { workflow_run_id } = await (await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
+		headers,
+		"body": JSON.stringify({
+			"ref": default_branch,
+			"return_run_details": true,
+			"inputs": {
+				"os": os,
+				"offer": encodeURIComponent(peer.localDescription.sdp)
+			}
+		}),
+		"method": "POST",
+	})).json();
+
+	// clearTimeout
+	const timeout = setTimeout(() => window.alert("Taking a little too long to connect, maybe try refreshing?"), 67_676.7);
+	let answerDownloadUrl;
+	while (true) {
+		const { artifacts } = await (await fetch(`${repoEndpoint}/actions/runs/${workflow_run_id}/artifacts`, { headers })).json();
+		answerDownloadUrl = artifacts?.find((artifact) => artifact.name === "answer.txt")?.archive_download_url;
+		if (answerDownloadUrl) {
+			clearTimeout(timeout);
+			break;
+		}
+
+		await sleep(1000);
+	}
+
+	const answer = await (await fetch(answerDownloadUrl, { headers })).text();
+
+	await peer.setRemoteDescription({
+		type: "answer",
+		sdp: answer
+	});
+})
