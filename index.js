@@ -209,27 +209,13 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	});
 
-	await peer.setLocalDescription();
-
-	await new Promise((resolve) => {
-		if (peer.iceGatheringState === "complete") {
-			resolve();
-		} else {
-			peer.addEventListener("icegatheringstatechange", function onStateChange() {
-				if (peer.iceGatheringState === "complete") {
-					peer.removeEventListener("icegatheringstatechange", onStateChange);
-					resolve();
-				}
-			});
-		}
-	});
-
 	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
 		"Authorization": `token ${accessToken}`,
 		"Content-Type": "application/json"
 	};
 
+	const topicName = crypto.randomGUID();
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
 	const workflowRunId = (await (await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
 		headers,
@@ -238,28 +224,45 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 			"return_run_details": true,
 			"inputs": {
 				"os": os,
-				"offer": encodeURIComponent(peer.localDescription.sdp)
+				"topicName": topicName
 			}
 		}),
 		"method": "POST",
 	})).json()).workflow_run_id;
 
-	// clearTimeout
+	const topic = new EventSource(`https://ntfy.sh/${topicName}/sse`);
 
-	const answerDownloadUrl = await new Promise((resolve) => {
-		const answerPoller = new Worker("answer-poller.js");
-		answerPoller.postMessage({ repoEndpoint, headers, workflowRunId });
+	peer.addEventListener("icecandidate", (event) => {
+		if (!event.candidate) return;
 
-		const timeout = setTimeout(() => {
-			window.alert("Taking a little too long to connect, maybe try refreshing?");
-		}, 67_676.7);
-
-		answerPoller.addEventListener("message", function onMessage(event) {
-			answerPoller.removeEventListener("message", onMessage);
-			clearTimeout(timeout);
-			resolve(event.data.answerDownloadUrl);
-			answerPoller.terminate(); // done, clean up
+		fetch(`https://ntfy.sh/${topicName}`, {
+			method: "POST",
+			headers: { "Title": "candidate" },
+			body: JSON.stringify(event.candidate),
 		});
+	});
+
+	topic.addEventListener("message", async (event) => {
+		const { title: type, message: data } = JSON.parse(event.data);
+
+		switch (type) {
+			case "offer": {
+				await peer.setRemoteDescription({ type: "offer", sdp: message });
+				await peer.setLocalDescription();
+
+				await fetch(`https://ntfy.sh/${topicName}`, {
+					method: "POST",
+					headers: { "Title": "answer" },
+					body: peer.localDescription.sdp,
+				});
+				break;
+			};
+
+			case "candidate": {
+				await peer.addIceCandidate(JSON.parse(message));
+				break;
+			}
+		}
 	});
 
 	const answer = await (await fetch(answerDownloadUrl, { headers })).text();
