@@ -101,6 +101,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		});
 	});
 
+	const setRemoteDescriptionCompleted = Promise.withResolvers();
 	topic.addEventListener("message", async (event) => {
 		const { title, attachment } = JSON.parse(event.data);
 		if (!attachment) return; // shouldn't happen anymore, but guard just in case
@@ -110,8 +111,9 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		switch (title) {
 			case "offer": {
 				await peer.setRemoteDescription({ type: "offer", sdp: message });
-				await peer.setLocalDescription();
+				setRemoteDescriptionCompleted.resolve();
 
+				await peer.setLocalDescription();
 				await fetch(topicUrl, {
 					method: "POST",
 					headers: {
@@ -124,6 +126,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 			};
 
 			case "offer-candidate": {
+				await setRemoteDescriptionCompleted.promise;
 				await peer.addIceCandidate(JSON.parse(message));
 				break;
 			};
