@@ -85,7 +85,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		direction: "recvonly"
 	});
 
-	const topicName = crypto.randomUUID();
+	const topicName = encodeURIComponent(crypto.randomUUID());
 	const topicUrl = `https://ntfy.sh/${topicName}`;
 	const topic = new EventSource(`${topicUrl}/sse`);
 	peer.addEventListener("icecandidate", (event) => {
