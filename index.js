@@ -93,13 +93,19 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 		fetch(topicUrl, {
 			method: "POST",
-			headers: { "Title": "answer-candidate" },
+			headers: {
+				"Title": "answer-candidate",
+				"Filename": "file.txt"
+			},
 			body: JSON.stringify(event.candidate),
 		});
 	});
 
 	topic.addEventListener("message", async (event) => {
-		const { title, message } = JSON.parse(event.data);
+		const { title, attachment } = JSON.parse(event.data);
+		if (!attachment) return; // shouldn't happen anymore, but guard just in case
+
+		const message = await (await fetch(attachment.url)).text();
 
 		switch (title) {
 			case "offer": {
@@ -108,7 +114,10 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 				await fetch(topicUrl, {
 					method: "POST",
-					headers: { "Title": "answer" },
+					headers: {
+						"Title": "answer",
+						"Filename": "file.txt"
+					},
 					body: peer.localDescription.sdp,
 				});
 				break;
