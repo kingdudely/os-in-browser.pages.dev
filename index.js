@@ -93,7 +93,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 		fetch(topicUrl, {
 			method: "POST",
-			headers: { "Title": "candidate" },
+			headers: { "Title": "answer-candidate" },
 			body: JSON.stringify(event.candidate),
 		});
 	});
@@ -114,7 +114,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 				break;
 			};
 
-			case "candidate": {
+			case "offer-candidate": {
 				await peer.addIceCandidate(JSON.parse(message));
 				break;
 			};
