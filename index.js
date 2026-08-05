@@ -85,6 +85,42 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		direction: "recvonly"
 	});
 
+	const topicName = crypto.randomUUID();
+	const topicUrl = `https://ntfy.sh/${topicName}`;
+	const topic = new EventSource(`${topicUrl}/sse`);
+	peer.addEventListener("icecandidate", (event) => {
+		if (!event.candidate) return;
+
+		fetch(topicUrl, {
+			method: "POST",
+			headers: { "Title": "candidate" },
+			body: JSON.stringify(event.candidate),
+		});
+	});
+
+	topic.addEventListener("message", async (event) => {
+		const { title, message } = JSON.parse(event.data);
+
+		switch (title) {
+			case "offer": {
+				await peer.setRemoteDescription({ type: "offer", sdp: message });
+				await peer.setLocalDescription();
+
+				await fetch(topicUrl, {
+					method: "POST",
+					headers: { "Title": "answer" },
+					body: peer.localDescription.sdp,
+				});
+				break;
+			};
+
+			case "candidate": {
+				await peer.addIceCandidate(JSON.parse(message));
+				break;
+			};
+		}
+	});
+
 	const pointerMovementChannel = peer.createDataChannel("pointer-movement", {
 		ordered: false,
 		maxRetransmits: 0,
@@ -215,60 +251,16 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		"Content-Type": "application/json"
 	};
 
-	const topicName = crypto.randomGUID();
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
-	const workflowRunId = (await (await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
-		headers,
+	await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
+		"headers": headers,
 		"body": JSON.stringify({
 			"ref": branch,
-			"return_run_details": true,
 			"inputs": {
 				"os": os,
-				"topicName": topicName
+				"topic-name": topicName
 			}
 		}),
 		"method": "POST",
-	})).json()).workflow_run_id;
-
-	const topic = new EventSource(`https://ntfy.sh/${topicName}/sse`);
-
-	peer.addEventListener("icecandidate", (event) => {
-		if (!event.candidate) return;
-
-		fetch(`https://ntfy.sh/${topicName}`, {
-			method: "POST",
-			headers: { "Title": "candidate" },
-			body: JSON.stringify(event.candidate),
-		});
-	});
-
-	topic.addEventListener("message", async (event) => {
-		const { title: type, message: data } = JSON.parse(event.data);
-
-		switch (type) {
-			case "offer": {
-				await peer.setRemoteDescription({ type: "offer", sdp: message });
-				await peer.setLocalDescription();
-
-				await fetch(`https://ntfy.sh/${topicName}`, {
-					method: "POST",
-					headers: { "Title": "answer" },
-					body: peer.localDescription.sdp,
-				});
-				break;
-			};
-
-			case "candidate": {
-				await peer.addIceCandidate(JSON.parse(message));
-				break;
-			}
-		}
-	});
-
-	const answer = await (await fetch(answerDownloadUrl, { headers })).text();
-
-	await peer.setRemoteDescription({
-		type: "answer",
-		sdp: answer
 	});
 })
