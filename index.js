@@ -71,9 +71,11 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 	peer.addEventListener("connectionstatechange", () => {
 		console.log(`ICE connection state: ${peer.connectionState}`);
-		if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
+		if (["disconnected", "closed"].includes(peer.connectionState)) {
 			mainDialog.showModal();
 		}
+		// "failed" is handled by the runner calling restartIce() and
+		// renegotiating — don't tear down the UI for it.
 	});
 
 	peer.addEventListener("track", (event) => {
