@@ -91,7 +91,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 	const topicUrl = `https://ntfy.sh/${topicName}`;
 	const topic = new EventSource(`${topicUrl}/sse`);
 	peer.addEventListener("icecandidate", (event) => {
-		if (!event.candidate) return;
+		if (!event.candidate || event.candidate.type === "host") return;
 
 		fetch(topicUrl, {
 			method: "POST",
