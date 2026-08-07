@@ -1,7 +1,8 @@
 {
 	"version": 1,
 	"include": [
-		"/login/oauth/access_token"
+		"/get-access-token",
+		"/logout"
 	],
 	"exclude": []
 }

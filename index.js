@@ -21,21 +21,18 @@ const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
-const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
-const REDIRECT_URI = "https://os-in-browser.pages.dev/";
 
 let accessToken;
 const code = new URLSearchParams(location.search).get("code");
 if (code) {
-	const code_verifier = sessionStorage.getItem("pkce_verifier");
-	const response = await fetch("/login/oauth/access_token", {
+	const code_verifier = sessionStorage.getItem("code_verifier");
+	const response = await fetch("/get-access-token", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 			"Accept": "application/json"
 		},
 		body: JSON.stringify({
-			"client_id": CLIENT_ID,
 			"code": code,
 			"code_verifier": code_verifier
 		})
@@ -54,12 +51,10 @@ document.getElementById("login-button").addEventListener("click", async () => {
 	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
 	const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url", omitPadding: true });
 
-	sessionStorage.setItem("pkce_verifier", code_verifier);
+	sessionStorage.setItem("code_verifier", code_verifier);
 
 	const parameters = new URLSearchParams({
-		"client_id": CLIENT_ID,
-		"redirect_uri": REDIRECT_URI,
-		"scope": "read:user",
+		"client_id": "Iv23liyBVjlZRV5r16UD",
 		"response_type": "code",
 		"code_challenge": code_challenge,
 		"code_challenge_method": "S256"
