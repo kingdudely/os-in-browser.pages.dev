@@ -9,15 +9,6 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
-const code = new URLSearchParams(location.search).get("code");
-if (code) {
-	history.replaceState(history.state, document.title, location.pathname);
-	const oauth = document.getElementById("oauth");
-	oauth.code.value = code;
-	oauth.requestSubmit(document.getElementById("download-access-token"));
-	// return
-}
-
 import codeMap from "./code-map.json" with { type: "json" };
 
 document.addEventListener('visibilitychange', () => {
@@ -26,27 +17,56 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
-function triggerImmersiveMode() {	
-	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.body.requestFullscreen({ // target, await
-			"navigationUI": "hide"
-		}).then(() => navigator.keyboard?.lock()).catch(() => {});
-	};
-
-	if (!document.pointerLockElement) {
-		document.body.requestPointerLock({ // target, await
-			"unadjustedMovement": true
-		}).catch(() => {});
-	}
-}
-
 const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
+const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
+const REDIRECT_URI = "https://os-in-browser.pages.dev/";
+
+let accessToken;
+const code = new URLSearchParams(location.search).get("code");
+if (code) {
+	const code_verifier = sessionStorage.getItem("pkce_verifier");
+	const response = await fetch("/login/oauth/access_token", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"Accept": "application/json"
+		},
+		body: JSON.stringify({
+			"client_id": CLIENT_ID,
+			"code": code,
+			"code_verifier": code_verifier
+		})
+	});
+
+	accessToken = (await response.json()).access_token;
+
+	history.replaceState(history.state, document.title, location.pathname);
+}
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
+
+document.getElementById("login-button").addEventListener("click", async () => {
+	const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url" });
+	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
+	const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url" });
+
+	sessionStorage.setItem("pkce_verifier", code_verifier);
+
+	const parameters = new URLSearchParams({
+		"client_id": CLIENT_ID,
+		"redirect_uri": REDIRECT_URI,
+		"scope": "read:user",
+		"response_type": "code",
+		"code_challenge": code_challenge,
+		"code_challenge_method": "S256"
+	});
+
+	window.location.href = "https://github.com/login/oauth/authorize?" + parameters.toString();
+});
 
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
 	event.preventDefault();
@@ -54,14 +74,6 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
-	const credentialFile = formData.get("credential-file");
-	if (!credentialFile) return;
-
-	const accessToken = new URLSearchParams(await credentialFile.text()).get("access_token");
-	if (!accessToken) {
-		alert("Invalid credential file");
-		return;
-	}
 
 	const peer = new RTCPeerConnection({
 		iceServers: [
@@ -257,12 +269,13 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		sharedView.setFloat32(5, event.deltaY, true);
 		sharedView.setFloat32(9, event.deltaZ, true); // unsupported in pynput
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
-	});
+	}, { passive: false });
 
 	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
 		"Authorization": `token ${accessToken}`,
-		"Content-Type": "application/json"
+		"Content-Type": "application/json",
+		"Accept": "application/json"
 	};
 
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
@@ -278,3 +291,17 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		"method": "POST",
 	});
 })
+
+function triggerImmersiveMode() {	
+	if (document.fullscreenEnabled && !document.fullscreenElement) {
+		document.body.requestFullscreen({ // target, await
+			"navigationUI": "hide"
+		}).then(() => navigator.keyboard?.lock()).catch(() => {});
+	};
+
+	if (!document.pointerLockElement) {
+		document.body.requestPointerLock({ // target, await
+			"unadjustedMovement": true
+		}).catch(() => {});
+	}
+}
