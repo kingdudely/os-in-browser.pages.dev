@@ -50,9 +50,9 @@ mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
 
 document.getElementById("login-button").addEventListener("click", async () => {
-	const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url" });
+	const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url", omitPadding: true });
 	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
-	const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url" });
+	const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url", omitPadding: true });
 
 	sessionStorage.setItem("pkce_verifier", code_verifier);
 
