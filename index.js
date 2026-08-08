@@ -319,14 +319,14 @@ async function clearCookiesLocally() {
 }
 
 async function isAccessTokenValid() {
-    const accessToken = await cookieStore.get("access_token");
-    if (!accessToken?.value) return false;
+    const accessToken = (await cookieStore.get("access_token"))?.value;
+    if (!accessToken) return false;
 
     try {
         const response = await fetch("https://api.github.com/user", {
             method: "GET",
             headers: {
-                "Authorization": `Bearer ${accessToken.value}`,
+                "Authorization": `Bearer ${accessToken}`,
                 "Accept": "application/vnd.github+json"
             }
         });
