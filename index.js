@@ -65,7 +65,6 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 	if (!ready) return; // gate screen is now showing, or redirect is happening
 
 	const accessToken = (await cookieStore.get("access_token"))?.value;
-	mainDialog.close();
 
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
