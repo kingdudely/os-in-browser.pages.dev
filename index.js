@@ -272,7 +272,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	}, { passive: false });
 
-	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
+	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser.pages.dev-host";
 	const headers = {
 		"Authorization": `Bearer ${accessToken}`,
 		"Content-Type": "application/json",
