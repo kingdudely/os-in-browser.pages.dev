@@ -66,7 +66,7 @@ if (!await handleOAuthCallback()) {
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
 	event.preventDefault();
 	await restoreSession()
-	const accessToken = await cookieStore.get("access_token");
+	const accessToken = (await cookieStore.get("access_token"))?.value;
 	if (!accessToken) {
 		return; 
 	}
@@ -274,7 +274,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
-		"Authorization": `token ${await cookieStore.get("access_token")}`,
+		"Authorization": `Bearer ${accessToken}`,
 		"Content-Type": "application/json",
 		"Accept": "application/json"
 	};
