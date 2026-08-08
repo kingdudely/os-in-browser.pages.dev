@@ -319,8 +319,8 @@ async function clearCookiesLocally() {
 }
 
 async function isAccessTokenValid() {
-    const tokenCookie = await cookieStore.get("access_token");
-    if (!tokenCookie || !tokenCookie.value) return false;
+    const accessToken = await cookieStore.get("access_token");
+    if (!accessToken?.value) return false;
 
     try {
         const response = await fetch("https://api.github.com/user", {
@@ -332,15 +332,7 @@ async function isAccessTokenValid() {
         });
 
         // 200 OK means the token is valid!
-        if (response.ok) {
-            return true;
-        }
-
-        // 401 Unauthorized means the token was revoked or expired
-        if (response.status === 401) {
-            console.warn("Access token is invalid or expired.");
-            return false;
-        }
+        return response.ok;
     } catch (err) {
         console.error("Network error while checking token validity:", err);
     }
