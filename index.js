@@ -326,7 +326,7 @@ async function isAccessTokenValid() {
         const response = await fetch("https://api.github.com/user", {
             method: "GET",
             headers: {
-                "Authorization": `Bearer ${tokenCookie.value}`,
+                "Authorization": `Bearer ${accessToken.value}`,
                 "Accept": "application/vnd.github+json"
             }
         });
