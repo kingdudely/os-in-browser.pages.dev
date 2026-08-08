@@ -49,7 +49,7 @@ mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
 
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
-	event.preventDefault();
+	// event.preventDefault();
 	// mainDialog.close();
 
 	const formData = new FormData(event.target);
