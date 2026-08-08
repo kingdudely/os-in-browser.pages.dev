@@ -38,7 +38,8 @@ document.getElementById("login-button").addEventListener("click", async () => {
         client_id: CLIENT_ID,
         response_type: "code",
         code_challenge: code_challenge,
-        code_challenge_method: "S256"
+        code_challenge_method: "S256",
+		prompt: "select_account"
     });
 
     window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
