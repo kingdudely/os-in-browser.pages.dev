@@ -64,6 +64,12 @@ if (!await handleOAuthCallback()) {
 
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
 	event.preventDefault();
+	await restoreSession()
+	const accessToken = await cookieStore.get("access_token");
+	if (!accessToken) {
+		return; 
+	}
+
 	mainDialog.close();
 
 	const formData = new FormData(event.target);
@@ -362,7 +368,7 @@ async function handleOAuthCallback() {
     });
 
     if (res.ok) {
-        window.history.replaceState({}, document.title, window.location.pathname);
+        history.replaceState(history.state, document.title, location.pathname);
         setLoggedInState(true);
         return true;
     }
