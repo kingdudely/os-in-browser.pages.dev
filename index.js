@@ -9,6 +9,15 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
+const code = new URLSearchParams(location.search).get("code");
+if (code) {
+	history.replaceState(history.state, document.title, location.pathname);
+	const oauth = document.getElementById("oauth");
+	oauth.code.value = code;
+	oauth.requestSubmit(document.getElementById("download-access-token"));
+	// return
+}
+
 import codeMap from "./code-map.json" with { type: "json" };
 
 document.addEventListener('visibilitychange', () => {
@@ -17,58 +26,42 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
+function triggerImmersiveMode() {	
+	if (document.fullscreenEnabled && !document.fullscreenElement) {
+		document.body.requestFullscreen({ // target, await
+			"navigationUI": "hide"
+		}).then(() => navigator.keyboard?.lock()).catch(() => {});
+	};
+
+	if (!document.pointerLockElement) {
+		document.body.requestPointerLock({ // target, await
+			"unadjustedMovement": true
+		}).catch(() => {});
+	}
+}
+
 const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
-const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
-const APP_SLUG = "os-in-browser";
-
-// Template that gets generated into each user's own account, and the
-// name it's generated under. The app installation is then scoped to
-// just this one generated repo (see ensureReady / ensureRepoGenerated).
-const TEMPLATE_OWNER = "kingdudely";
-const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
-const RUNNER_REPO_NAME = "os-in-browser.pages.dev-host";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
 
-// 1. Login Handler
-document.getElementById("login-button").addEventListener("click", () => {
-    startOAuthFlow("https://github.com/login/oauth/authorize");
-});
-
-// 4. Logout Handler
-document.getElementById("logout-button").addEventListener("click", async () => {
-    try {
-        await fetch("/logout", { method: "POST" });
-    } catch (error) {
-        console.warn("Server logout failed, clearing locally:", error);
-    } finally {
-        await clearCookiesLocally();
-        setAppLoggedIn(false);
-    }
-});
-
-// ---- Boot sequence ----
-const cameFromCallback = await handleOAuthCallback();
-if (!cameFromCallback) {
-    await restoreSession();
-}
-await ensureReady();
-
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
 	event.preventDefault();
-
-	const ready = await ensureReady();
-	if (!ready) return; // gate screen is now showing, or redirect is happening
-
-	const accessToken = (await cookieStore.get("access_token"))?.value;
-	mainDialog.close();
+	// mainDialog.close();
 
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
+	const credentialFile = formData.get("credential-file");
+	if (!credentialFile) return;
+
+	const accessToken = new URLSearchParams(await credentialFile.text()).get("access_token");
+	if (!accessToken) {
+		alert("Invalid credential file");
+		return;
+	}
 
 	const peer = new RTCPeerConnection({
 		iceServers: [
@@ -81,6 +74,8 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		if (["disconnected", "closed"].includes(peer.connectionState)) {
 			mainDialog.showModal();
 		}
+		// "failed" is handled by the runner calling restartIce() and
+		// renegotiating — don't tear down the UI for it.
 	});
 
 	peer.addEventListener("track", (event) => {
@@ -111,7 +106,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 	const setRemoteDescriptionCompleted = Promise.withResolvers();
 	topic.addEventListener("message", async (event) => {
 		const { title, attachment } = JSON.parse(event.data);
-		if (!attachment) return;
+		if (!attachment) return; // shouldn't happen anymore, but guard just in case
 
 		const message = await (await fetch(attachment.url)).text();
 
@@ -147,6 +142,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		id: 0
 	});
 
+	// pointerrawupdate, getCoalescedEvents
 	window.addEventListener("pointermove", (event) => {
 		event.preventDefault();
 		if (pointerMovementChannel.readyState !== "open") return;
@@ -174,7 +170,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		if (pointerClickChannel.readyState !== "open") return;
 		triggerImmersiveMode();
 
-		sharedView.setUint8(0, 1);
+		sharedView.setUint8(0, 1); // isDown
 		sharedView.setUint8(1, event.button);
 		pointerClickChannel.send(sharedBytes.subarray(0, 2));
 	});
@@ -183,7 +179,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		event.preventDefault();
 		if (pointerClickChannel.readyState !== "open") return;
 
-		sharedView.setUint8(0, 0);
+		sharedView.setUint8(0, 0); // isDown
 		sharedView.setUint8(1, event.button);
 		pointerClickChannel.send(sharedBytes.subarray(0, 2));
 	});
@@ -194,6 +190,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		id: 2
 	});
 
+	// Could do tabindex=0 but then they can just press tab again - also, this is more reliable, and screenshare is basically the whole screen anyways.
 	window.addEventListener("keydown", (event) => {
 		event.preventDefault();
 		if (keyboardTypeChannel.readyState !== "open" || event.repeat) return;
@@ -204,7 +201,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 			return;
 		}
 
-		sharedView.setUint8(0, 1);
+		sharedView.setUint8(0, 1); // isDown
 		sharedView.setUint8(1, codeMap[event.code]);
 
 		keyboardTypeChannel.send(sharedBytes.subarray(0, 2));
@@ -219,12 +216,13 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 			return;
 		}
 
-		sharedView.setUint8(0, 0);
+		sharedView.setUint8(0, 0); // isDown
 		sharedView.setUint8(1, codeMap[event.code]);
 
 		keyboardTypeChannel.send(sharedBytes.subarray(0, 2));
 	})
 
+	// Not implemented.
 	const screenResizeChannel = peer.createDataChannel("screen-resize", {
 		ordered: false,
 		negotiated: true,
@@ -240,8 +238,8 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		screenResizeChannel.send(sharedBytes.subarray(0, 8));
 	}
 
-	screenResizeChannel.addEventListener("open", onResize);
-	window.addEventListener("resize", onResize);
+	screenResizeChannel.addEventListener("open", onResize); // So it automatically resizes in the beginning
+	window.addEventListener("resize", onResize); // ResizeObserver 
 
 	const pointerScrollChannel = peer.createDataChannel("pointer-scroll", {
 		ordered: false,
@@ -257,18 +255,14 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		sharedView.setUint8(0, event.deltaMode);
 		sharedView.setFloat32(1, event.deltaX, true);
 		sharedView.setFloat32(5, event.deltaY, true);
-		sharedView.setFloat32(9, event.deltaZ, true);
+		sharedView.setFloat32(9, event.deltaZ, true); // unsupported in pynput
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
-	}, { passive: false });
+	});
 
-	// Per-user generated repo (from ensureRepoGenerated during ensureReady)
-	const repo = await ensureRepoGenerated(accessToken);
-	const repoEndpoint = `https://api.github.com/repos/${repo.full_name}`;
+	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
-		"Authorization": `Bearer ${accessToken}`,
-		"X-GitHub-Api-Version": "2026-03-10",
-		"Content-Type": "application/json",
-		"Accept": "application/vnd.github+json"
+		"Authorization": `token ${accessToken}`,
+		"Content-Type": "application/json"
 	};
 
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
@@ -284,263 +278,3 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		"method": "POST",
 	});
 })
-
-async function startOAuthFlow(baseUrl) {
-    const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url", omitPadding: true });
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
-    const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url", omitPadding: true });
-
-    sessionStorage.setItem("code_verifier", code_verifier);
-
-    const parameters = new URLSearchParams({
-        "client_id": CLIENT_ID,
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-        "prompt": "select_account",
-        "state": crypto.randomUUID(),
-    });
-
-    window.location.href = `${baseUrl}?${parameters.toString()}`;
-}
-
-// ---- App state (3 states instead of just logged-in/out) ----
-function setAppLoggedIn(loggedIn) {
-    document.getElementById("logged-out").hidden = loggedIn;
-    document.getElementById("logged-in").hidden = !loggedIn;
-}
-
-async function clearCookiesLocally() {
-	await cookieStore.delete("access_token");
-	await cookieStore.delete("refresh_token");
-}
-
-async function isAccessTokenValid() {
-    const accessToken = (await cookieStore.get("access_token"))?.value;
-    if (!accessToken) return false;
-
-    try {
-        const response = await fetch("https://api.github.com/user", {
-            headers: {
-                "Authorization": `Bearer ${accessToken}`,
-                "X-GitHub-Api-Version": "2026-03-10",
-                "Accept": "application/vnd.github+json"
-            }
-        });
-        return response.ok;
-    } catch (err) {
-        console.error("Network error while checking token validity:", err);
-    }
-    return false;
-}
-
-async function isAppInstalled(accessToken) {
-    try {
-        const res = await fetch("https://api.github.com/user/installations", {
-            headers: {
-                "Authorization": `Bearer ${accessToken}`,
-                "X-GitHub-Api-Version": "2026-03-10",
-                "Accept": "application/vnd.github+json"
-            }
-        });
-        if (!res.ok) return false;
-        const data = await res.json();
-        return data.total_count > 0;
-    } catch (err) {
-        console.error("Network error while checking installation:", err);
-        return false;
-    }
-}
-
-// Returns the numeric installation ID for this app, or null if not installed.
-async function getInstallationId(accessToken) {
-    const res = await fetch("https://api.github.com/user/installations", {
-        headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "X-GitHub-Api-Version": "2026-03-10",
-            "Accept": "application/vnd.github+json"
-        }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    // Since ensureReady only redirects to install our own app, and
-    // /user/installations lists every app the user has installed, filter
-    // to the one whose app_id matches ours. We only know the slug here,
-    // so match on app_slug.
-    const install = data.installations.find(i => i.app_slug === APP_SLUG);
-    return install?.id ?? null;
-}
-
-// Checks whether the app's installation currently has access to the given
-// repo (by full_name, e.g. "octocat/os-in-browser-runner"). Paginates
-// /user/installations/{id}/repositories.
-async function installationCoversRepo(accessToken, fullRepoName) {
-    const installationId = await getInstallationId(accessToken);
-    if (!installationId) return false;
-
-    const headers = {
-        "Authorization": `Bearer ${accessToken}`,
-        "X-GitHub-Api-Version": "2026-03-10",
-        "Accept": "application/vnd.github+json"
-    };
-
-    let page = 1;
-    while (true) {
-        const res = await fetch(
-            `https://api.github.com/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
-            { headers }
-        );
-        if (!res.ok) return false;
-
-        const data = await res.json();
-        if (data.repositories.some(r => r.full_name === fullRepoName)) return true;
-        if (data.repositories.length < 100) return false;
-        page++;
-    }
-}
-
-async function fetchUser(accessToken) {
-    const res = await fetch("https://api.github.com/user", {
-        headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "X-GitHub-Api-Version": "2026-03-10",
-            "Accept": "application/vnd.github+json"
-        }
-    });
-    return res.ok ? res.json() : null;
-}
-
-// Ensures the per-user runner repo exists, generating it from the template
-// (via the user's own access token — repo creation for a personal account
-// has to go through the user, not the app installation) if it doesn't
-// already exist. Returns the repo object ({ id, full_name, ... }) or null
-// on failure.
-async function ensureRepoGenerated(accessToken) {
-    const headers = {
-        "Authorization": `Bearer ${accessToken}`,
-        "X-GitHub-Api-Version": "2026-03-10",
-        "Accept": "application/vnd.github+json"
-    };
-
-    const me = await fetchUser(accessToken);
-    if (!me) return null;
-
-    const existing = await fetch(`https://api.github.com/repos/${me.login}/${RUNNER_REPO_NAME}`, { headers });
-    if (existing.ok) return existing.json();
-    if (existing.status !== 404) return null;
-
-    const generated = await fetch(`https://api.github.com/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-            owner: me.login,
-            name: RUNNER_REPO_NAME,
-            include_all_branches: false,
-            private: false
-        })
-    });
-
-    return generated.ok ? generated.json() : null;
-}
-
-// ---- Central gatekeeper: call this after login AND on every restore ----
-// Returns true only when the user has a valid token, their runner repo
-// exists, AND the app installation actually has access to that repo.
-async function ensureReady() {
-    const accessToken = (await cookieStore.get("access_token"))?.value;
-    if (!accessToken) {
-        setAppLoggedIn(false);
-        return false;
-    }
-
-    const repo = await ensureRepoGenerated(accessToken);
-    if (!repo) {
-        // Repo creation failed (rate limit, name collision, network, etc.)
-        setAppLoggedIn(false);
-        return false;
-    }
-
-    const installed = await isAppInstalled(accessToken);
-    if (!installed) {
-        // Repo already exists at this point, so the install screen can be
-        // pre-scoped to it via suggested_target_id + repository_ids[]
-        // (documented under "Migrating OAuth Apps to GitHub Apps", but
-        // works outside that context too). This is a pre-selection, not
-        // an enforced restriction — the user can still change it on that
-        // screen, which is why installationCoversRepo below still checks.
-        const me = await fetchUser(accessToken);
-        const params = new URLSearchParams({ suggested_target_id: me.id });
-        params.append("repository_ids[]", repo.id);
-        window.location.href =
-            `https://github.com/apps/${APP_SLUG}/installations/new/permissions?${params.toString()}`;
-        return false;
-    }
-
-    const covered = await installationCoversRepo(accessToken, repo.full_name);
-    if (!covered) {
-        // App is installed, but this specific repo isn't in its granted
-        // set (skipped during install, or an install that predates this
-        // repo). There's no API path to fix this from a GitHub App user
-        // access token (PUT /user/installations/.../repositories/... only
-        // works with classic PATs), so send them to the installation's
-        // own config page to add it manually.
-        const installationId = await getInstallationId(accessToken);
-        window.location.href = `https://github.com/settings/installations/${installationId}`;
-        return false;
-    }
-
-    setAppLoggedIn(true);
-    return true;
-}
-
-// Session Check — just resolves to a valid token or not; ensureReady() handles the rest
-async function restoreSession() {
-    if (await isAccessTokenValid()) return true;
-
-    if (!(await cookieStore.get("refresh_token"))) return false;
-
-    try {
-        const res = await fetch("/get-access-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ grant_type: "refresh_token" })
-        });
-        if (res.ok) return true;
-    } catch (err) {
-        console.warn("Refresh failed:", err);
-    }
-
-    await clearCookiesLocally();
-    return false;
-}
-
-// OAuth Callback — handles both the plain login AND the install-then-authorize redirect
-async function handleOAuthCallback() {
-    const code = new URLSearchParams(window.location.search).get("code");
-    if (!code) return false;
-
-    const code_verifier = sessionStorage.getItem("code_verifier");
-    sessionStorage.removeItem("code_verifier");
-
-    const res = await fetch("/get-access-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, code_verifier })
-    });
-
-    history.replaceState(history.state, document.title, location.pathname);
-    return res.ok;
-}
-
-function triggerImmersiveMode() {	
-	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.body.requestFullscreen({
-			"navigationUI": "hide"
-		}).then(() => navigator.keyboard?.lock()).catch(() => {});
-	};
-
-	if (!document.pointerLockElement) {
-		document.body.requestPointerLock({
-			"unadjustedMovement": true
-		}).catch(() => {});
-	}
-}
