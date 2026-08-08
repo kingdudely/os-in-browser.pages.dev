@@ -21,7 +21,7 @@ const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
-const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
+const CLIENT_ID = "Ov23lipwX2GRkJRc0FdF";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
@@ -35,11 +35,12 @@ document.getElementById("login-button").addEventListener("click", async () => {
     sessionStorage.setItem("code_verifier", code_verifier);
 
     const parameters = new URLSearchParams({
-        client_id: CLIENT_ID,
-        response_type: "code",
-        code_challenge: code_challenge,
-        code_challenge_method: "S256",
-		prompt: "select_account"
+        "client_id": CLIENT_ID,
+        "response_type": "code",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+		"prompt": "select_account",
+		"scope": "repo workflow"
     });
 
     window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
