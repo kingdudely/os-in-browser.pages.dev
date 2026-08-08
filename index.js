@@ -275,8 +275,9 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser.pages.dev-host";
 	const headers = {
 		"Authorization": `Bearer ${accessToken}`,
+		"X-GitHub-Api-Version: 2026-03-10" 
 		"Content-Type": "application/json",
-		"Accept": "application/json"
+		"Accept": "application/vnd.github+json"
 	};
 
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
@@ -327,6 +328,7 @@ async function isAccessTokenValid() {
             method: "GET",
             headers: {
                 "Authorization": `Bearer ${accessToken}`,
+				"X-GitHub-Api-Version: 2026-03-10",
                 "Accept": "application/vnd.github+json"
             }
         });
