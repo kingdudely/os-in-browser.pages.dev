@@ -28,8 +28,8 @@ const APP_SLUG = "os-in-browser";
 // name it's generated under. The app installation is then scoped to
 // just this one generated repo (see ensureReady / ensureRepoGenerated).
 const TEMPLATE_OWNER = "kingdudely";
-const TEMPLATE_REPO = "os-in-browser-runner-template";
-const RUNNER_REPO_NAME = "os-in-browser-runner";
+const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
+const RUNNER_REPO_NAME = "os-in-browser.pages.dev-host";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
