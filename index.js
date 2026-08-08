@@ -318,21 +318,51 @@ async function clearCookiesLocally() {
 	await cookieStore.delete("refresh_token");
 }
 
+async function isAccessTokenValid() {
+    const tokenCookie = await cookieStore.get("access_token");
+    if (!tokenCookie || !tokenCookie.value) return false;
+
+    try {
+        const response = await fetch("https://api.github.com/user", {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${tokenCookie.value}`,
+                "Accept": "application/vnd.github+json"
+            }
+        });
+
+        // 200 OK means the token is valid!
+        if (response.ok) {
+            return true;
+        }
+
+        // 401 Unauthorized means the token was revoked or expired
+        if (response.status === 401) {
+            console.warn("Access token is invalid or expired.");
+            return false;
+        }
+    } catch (err) {
+        console.error("Network error while checking token validity:", err);
+    }
+
+    return false;
+}
+
 // Session Check
 async function restoreSession() {
-    // 1. Valid access_token? -> Done (0 requests)
-    if (await cookieStore.get("access_token")) {
+    // 1. Check locally if access_token cookie exists & is actually valid on GitHub
+    if (await isAccessTokenValid()) {
         setLoggedInState(true);
         return true;
     }
 
-    // 2. No refresh_token either? -> Logged out (0 requests)
+    // 2. Access token was missing or invalid—do we have a refresh_token cookie?
     if (!(await cookieStore.get("refresh_token"))) {
         setLoggedInState(false);
         return false;
     }
 
-    // 3. Only access_token missing -> Swap refresh_token (1 request)
+    // 3. Attempt silent refresh via Worker (1 request)
     try {
         const res = await fetch("/get-access-token", {
             method: "POST",
@@ -348,8 +378,9 @@ async function restoreSession() {
         console.warn("Refresh failed:", err);
     }
 
-    // If exchange fails, wipe locally (0 extra requests)
-    await clearCookiesLocally();
+    // Refresh failed -> clear state
+    await cookieStore.delete("access_token");
+    await cookieStore.delete("refresh_token");
     setLoggedInState(false);
     return false;
 }
