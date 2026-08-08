@@ -44,6 +44,8 @@ const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
+const TEMPLATE_OWNER = "kingdudely";
+const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
@@ -259,11 +261,35 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	});
 
-	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
 		"Authorization": `token ${accessToken}`,
 		"Content-Type": "application/json"
 	};
+
+	const owner = (await (await fetch("https://api.github.com/user", { headers })).json()).login;
+
+	const repoEndpoint = `https://api.github.com/repos/${owner}/${TEMPLATE_REPO}`;
+	const existingRepoResponse = await fetch(repoEndpoint, { headers });
+
+	if (existingRepoResponse.status === 404) {
+		// User doesn't have the host repo yet — generate one from the template.
+		const generateResponse = await fetch(`https://api.github.com/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
+			headers,
+			method: "POST",
+			body: JSON.stringify({
+				"owner": owner,
+				"name": TEMPLATE_REPO,
+				"include_all_branches": false,
+				"private": false
+			}),
+		});
+
+		if (!generateResponse.ok) {
+			throw new Error(`Failed to generate repo from template: ${generateResponse.status} ${await generateResponse.text()}`);
+		}
+	} else if (!existingRepoResponse.ok) {
+		throw new Error(`Failed to check for existing repo: ${existingRepoResponse.status} ${await existingRepoResponse.text()}`);
+	}
 
 	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
 	await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
