@@ -294,10 +294,6 @@ async function startOAuthFlow(baseUrl) {
     window.location.href = `${baseUrl}?${parameters.toString()}`;
 }
 
-function redirectToInstall() {
-    startOAuthFlow(`https://github.com/apps/${APP_SLUG}/installations/new`);
-}
-
 // ---- App state (3 states instead of just logged-in/out) ----
 function setAppLoggedIn(loggedIn) {
     document.getElementById("logged-out").hidden = loggedIn;
