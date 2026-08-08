@@ -5,26 +5,33 @@
 	<title>Screen Share</title>
 	<link rel="stylesheet" href="styles.css">
 	<script type="module" src="index.js" defer></script>
+	<script type="module" src="login.js" defer></script>
 </head>
 <body>
 	<video id="screenshare" autoplay playsinline muted></video>
 
 	<dialog id="main-dialog">
-		<button id="login-button">Login with GitHub</button>
+		<div id="logged-out">
+			<button id="login-button">Login with GitHub</button>
+		</div>
 
-		<hr />
+		<div id="logged-in" hidden>
+			<button id="logout-button">Logout of GitHub</button>
 
-		<form id="start-runner">
-			<select name="os" required>
-				<option value="windows-latest">windows-latest</option>
-				<option value="macos-latest">macos-latest</option>
-				<option value="ubuntu-latest">ubuntu-latest</option>
-			</select>
+			<hr />
 
-			<br />
+			<form id="start-runner">
+				<select name="os" required>
+					<option value="windows-latest">windows-latest</option>
+					<option value="macos-latest">macos-latest</option>
+					<option value="ubuntu-latest">ubuntu-latest</option>
+				</select>
 
-			<button type="submit">BOOT</button>
-		</form>
+				<br />
+
+				<button type="submit">BOOT</button>
+			</form>
+		</div>
 	</dialog>
 </body>
 </html>

@@ -9,10 +9,9 @@ export default {
                 const body = await request.json();
                 const cookies = parseCookies(request.headers.get("Cookie"));
 
-                // Fall back to cookie refresh_token if client didn't explicitly pass one
+                // Fall back to HTTP cookie if refresh_token wasn't passed in payload
                 const refreshToken = body.refresh_token || cookies.refresh_token;
 
-                // Determine payload based on grant type
                 const payload = body.grant_type === "refresh_token" 
                     ? {
                         client_id: env.CLIENT_ID,
@@ -50,16 +49,16 @@ export default {
                     headers: { "Content-Type": "application/json" }
                 });
 
-                // 1. Set Access Token Cookie (Short-lived, e.g., 8 hours / 28800s)
-                const accessMaxAge = data.expires_in || 28800;
+                // 1. Access Token Cookie (Non-HttpOnly so JS can check existence)
+                const accessMaxAge = data.expires_in || 28800; // 8 hours
                 response.headers.append(
                     "Set-Cookie",
                     `access_token=${data.access_token}; Path=/; Max-Age=${accessMaxAge}; Secure; SameSite=Lax`
                 );
 
-                // 2. Set Refresh Token Cookie (Long-lived, e.g., 6 months / 15552000s)
+                // 2. Refresh Token Cookie (Non-HttpOnly for 0-request checks)
                 if (data.refresh_token) {
-                    const refreshMaxAge = data.refresh_token_expires_in || 15552000;
+                    const refreshMaxAge = data.refresh_token_expires_in || 15552000; // 6 months
                     response.headers.append(
                         "Set-Cookie",
                         `refresh_token=${data.refresh_token}; Path=/; Max-Age=${refreshMaxAge}; Secure; SameSite=Lax`
@@ -74,7 +73,6 @@ export default {
 
                 const cookies = parseCookies(request.headers.get("Cookie"));
                 
-                // Revoke active access token on GitHub side if present
                 if (cookies.access_token) {
                     await fetch(`https://api.github.com/applications/${env.CLIENT_ID}/token`, {
                         method: "DELETE",
@@ -90,7 +88,7 @@ export default {
 
                 const response = new Response(JSON.stringify({ success: true }), { status: 200 });
 
-                // Clear both cookies by setting Max-Age to 0
+                // Revoke both cookies
                 response.headers.append("Set-Cookie", "access_token=; Path=/; Max-Age=0; Secure; SameSite=Lax");
                 response.headers.append("Set-Cookie", "refresh_token=; Path=/; Max-Age=0; Secure; SameSite=Lax");
 
@@ -103,11 +101,10 @@ export default {
     }
 };
 
-// Simple cookie parser helper
-function parseCookies(cookieHeader) {
+function parseCookies(header) {
     const list = {};
-    if (!cookieHeader) return list;
-    cookieHeader.split(";").forEach(cookie => {
+    if (!header) return list;
+    header.split(";").forEach(cookie => {
         const [name, ...rest] = cookie.split("=");
         list[name.trim()] = rest.join("=").trim();
     });

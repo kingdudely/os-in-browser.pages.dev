@@ -21,97 +21,46 @@ const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
-const loginButton = document.getElementById("login-button");
-const logoutButton = document.getElementById("logout-button");
-
-function setLoggedInState(isLoggedIn) {
-    loginButton.hidden = isLoggedIn;
-    logoutButton.hidden = !isLoggedIn;
-}
-
-// Exchange code or refresh token with Worker
-async function requestToken(payload) {
-    const res = await fetch("/get-access-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-    return res.ok;
-}
-
-// Restores active session or performs seamless refresh if access token expired
-async function restoreSession() {
-    const hasAccessToken = !!(await cookieStore.get("access_token"));
-    if (hasAccessToken) {
-        setLoggedInState(true);
-        return true;
-    }
-
-    const hasRefreshToken = !!(await cookieStore.get("refresh_token"));
-    if (hasRefreshToken) {
-        // Access token expired, but refresh token is valid -> refresh silently
-        const refreshed = await requestToken({ grant_type: "refresh_token" });
-        if (refreshed) {
-            setLoggedInState(true);
-            return true;
-        }
-    }
-
-    setLoggedInState(false);
-    return false;
-}
-
-// Handle initial OAuth Redirect Code
-async function handleOAuthCallback() {
-    const code = new URLSearchParams(window.location.search).get("code");
-    if (!code) return false;
-
-    const codeVerifier = sessionStorage.getItem("code_verifier");
-    const success = await requestToken({ code, code_verifier: codeVerifier });
-
-    if (success) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setLoggedInState(true);
-        return true;
-    }
-
-    setLoggedInState(false);
-    return false;
-}
-
-// Logout
-logoutButton.addEventListener("click", async () => {
-    await fetch("/logout", { method: "POST" });
-    setLoggedInState(false);
-});
-
-// Run session check on load
-(async () => {
-    const handled = await handleOAuthCallback();
-    if (!handled) {
-        await restoreSession();
-    }
-})();
-
-loginButton.addEventListener("click", async () => {
-	const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url", omitPadding: true });
-	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
-	const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url", omitPadding: true });
-
-	sessionStorage.setItem("code_verifier", code_verifier);
-
-	const parameters = new URLSearchParams({
-		"client_id": "Iv23liyBVjlZRV5r16UD",
-		"response_type": "code",
-		"code_challenge": code_challenge,
-		"code_challenge_method": "S256"
-	});
-
-	window.location.href = "https://github.com/login/oauth/authorize?" + parameters.toString();
-});
+const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
+
+// 1. PKCE Login Handler
+document.getElementById("login-button").addEventListener("click", async () => {
+    const code_verifier = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url", omitPadding: true });
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
+    const code_challenge = new Uint8Array(digest).toBase64({ alphabet: "base64url", omitPadding: true });
+
+    sessionStorage.setItem("code_verifier", code_verifier);
+
+    const parameters = new URLSearchParams({
+        client_id: CLIENT_ID,
+        response_type: "code",
+        code_challenge: code_challenge,
+        code_challenge_method: "S256"
+    });
+
+    window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+});
+
+// 4. Logout Handler
+document.getElementById("logout-button").addEventListener("click", async () => {
+    try {
+        // Revokes token on GitHub API + clears cookies via Worker
+        await fetch("/logout", { method: "POST" });
+    } catch (error) {
+        console.warn("Server logout failed, clearing locally:", error);
+    } finally {
+        // Fallback to guarantee cookies are wiped locally no matter what
+        await clearCookiesLocally();
+        setLoggedInState(false);
+    }
+});
+
+if (!await handleOAuthCallback()) {
+	await restoreSession();
+}
 
 document.getElementById("start-runner").addEventListener("submit", async (event) => {
 	event.preventDefault();
@@ -318,7 +267,7 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 
 	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser";
 	const headers = {
-		"Authorization": `token ${accessToken}`,
+		"Authorization": `token ${await cookieStore.get("access_token")}`,
 		"Content-Type": "application/json",
 		"Accept": "application/json"
 	};
@@ -349,4 +298,75 @@ function triggerImmersiveMode() {
 			"unadjustedMovement": true
 		}).catch(() => {});
 	}
+}
+
+function setLoggedInState(isLoggedIn) {
+    document.getElementById("logged-out").hidden = isLoggedIn;
+    document.getElementById("logged-in").hidden = !isLoggedIn;
+}
+
+// Local cookie cleanup (Cost: 0 Worker Requests)
+async function clearCookiesLocally() {
+	await cookieStore.delete("access_token");
+	await cookieStore.delete("refresh_token");
+}
+
+// Session Check
+async function restoreSession() {
+    // 1. Valid access_token? -> Done (0 requests)
+    if (await cookieStore.get("access_token")) {
+        setLoggedInState(true);
+        return true;
+    }
+
+    // 2. No refresh_token either? -> Logged out (0 requests)
+    if (!(await cookieStore.get("refresh_token"))) {
+        setLoggedInState(false);
+        return false;
+    }
+
+    // 3. Only access_token missing -> Swap refresh_token (1 request)
+    try {
+        const res = await fetch("/get-access-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ grant_type: "refresh_token" })
+        });
+
+        if (res.ok) {
+            setLoggedInState(true);
+            return true;
+        }
+    } catch (err) {
+        console.warn("Refresh failed:", err);
+    }
+
+    // If exchange fails, wipe locally (0 extra requests)
+    await clearCookiesLocally();
+    setLoggedInState(false);
+    return false;
+}
+
+// 3. OAuth Callback
+async function handleOAuthCallback() {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (!code) return false;
+
+    const code_verifier = sessionStorage.getItem("code_verifier");
+    sessionStorage.removeItem("code_verifier");
+
+    const res = await fetch("/get-access-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, code_verifier })
+    });
+
+    if (res.ok) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setLoggedInState(true);
+        return true;
+    }
+
+    setLoggedInState(false);
+    return false;
 }
