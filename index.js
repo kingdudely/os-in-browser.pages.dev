@@ -21,7 +21,7 @@ const screenshare = document.getElementById("screenshare");
 const mainDialog = document.getElementById("main-dialog");
 const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
-const CLIENT_ID = "Ov23lipwX2GRkJRc0FdF";
+const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
 
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
@@ -40,10 +40,11 @@ document.getElementById("login-button").addEventListener("click", async () => {
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
 		"prompt": "select_account",
-		"scope": "repo workflow"
+		"state": crypto.randomUUID(),
+		// "scope": "public_repo workflow"
     });
 
-    window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+	window.location.href = `https://github.com/apps/os-in-browser/installations/new?${parameters.toString()}`;
 });
 
 // 4. Logout Handler
