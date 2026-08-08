@@ -24,6 +24,13 @@ const sharedView = new DataView(sharedBytes.buffer);
 const CLIENT_ID = "Iv23liyBVjlZRV5r16UD";
 const APP_SLUG = "os-in-browser";
 
+// Template that gets generated into each user's own account, and the
+// name it's generated under. The app installation is then scoped to
+// just this one generated repo (see ensureReady / ensureRepoGenerated).
+const TEMPLATE_OWNER = "kingdudely";
+const TEMPLATE_REPO = "os-in-browser-runner-template";
+const RUNNER_REPO_NAME = "os-in-browser-runner";
+
 mainDialog.showModal();
 mainDialog.addEventListener('cancel', (event) => event.preventDefault());
 
@@ -254,7 +261,9 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 	}, { passive: false });
 
-	const repoEndpoint = "https://api.github.com/repos/kingdudely/os-in-browser.pages.dev-host";
+	// Per-user generated repo (from ensureRepoGenerated during ensureReady)
+	const repo = await ensureRepoGenerated(accessToken);
+	const repoEndpoint = `https://api.github.com/repos/${repo.full_name}`;
 	const headers = {
 		"Authorization": `Bearer ${accessToken}`,
 		"X-GitHub-Api-Version": "2026-03-10",
@@ -342,8 +351,100 @@ async function isAppInstalled(accessToken) {
     }
 }
 
+// Returns the numeric installation ID for this app, or null if not installed.
+async function getInstallationId(accessToken) {
+    const res = await fetch("https://api.github.com/user/installations", {
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "X-GitHub-Api-Version": "2026-03-10",
+            "Accept": "application/vnd.github+json"
+        }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Since ensureReady only redirects to install our own app, and
+    // /user/installations lists every app the user has installed, filter
+    // to the one whose app_id matches ours. We only know the slug here,
+    // so match on app_slug.
+    const install = data.installations.find(i => i.app_slug === APP_SLUG);
+    return install?.id ?? null;
+}
+
+// Checks whether the app's installation currently has access to the given
+// repo (by full_name, e.g. "octocat/os-in-browser-runner"). Paginates
+// /user/installations/{id}/repositories.
+async function installationCoversRepo(accessToken, fullRepoName) {
+    const installationId = await getInstallationId(accessToken);
+    if (!installationId) return false;
+
+    const headers = {
+        "Authorization": `Bearer ${accessToken}`,
+        "X-GitHub-Api-Version": "2026-03-10",
+        "Accept": "application/vnd.github+json"
+    };
+
+    let page = 1;
+    while (true) {
+        const res = await fetch(
+            `https://api.github.com/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
+            { headers }
+        );
+        if (!res.ok) return false;
+
+        const data = await res.json();
+        if (data.repositories.some(r => r.full_name === fullRepoName)) return true;
+        if (data.repositories.length < 100) return false;
+        page++;
+    }
+}
+
+async function fetchUser(accessToken) {
+    const res = await fetch("https://api.github.com/user", {
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "X-GitHub-Api-Version": "2026-03-10",
+            "Accept": "application/vnd.github+json"
+        }
+    });
+    return res.ok ? res.json() : null;
+}
+
+// Ensures the per-user runner repo exists, generating it from the template
+// (via the user's own access token — repo creation for a personal account
+// has to go through the user, not the app installation) if it doesn't
+// already exist. Returns the repo object ({ id, full_name, ... }) or null
+// on failure.
+async function ensureRepoGenerated(accessToken) {
+    const headers = {
+        "Authorization": `Bearer ${accessToken}`,
+        "X-GitHub-Api-Version": "2026-03-10",
+        "Accept": "application/vnd.github+json"
+    };
+
+    const me = await fetchUser(accessToken);
+    if (!me) return null;
+
+    const existing = await fetch(`https://api.github.com/repos/${me.login}/${RUNNER_REPO_NAME}`, { headers });
+    if (existing.ok) return existing.json();
+    if (existing.status !== 404) return null;
+
+    const generated = await fetch(`https://api.github.com/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            owner: me.login,
+            name: RUNNER_REPO_NAME,
+            include_all_branches: false,
+            private: false
+        })
+    });
+
+    return generated.ok ? generated.json() : null;
+}
+
 // ---- Central gatekeeper: call this after login AND on every restore ----
-// Returns true only when the user has a valid token AND the app is installed.
+// Returns true only when the user has a valid token, their runner repo
+// exists, AND the app installation actually has access to that repo.
 async function ensureReady() {
     const accessToken = (await cookieStore.get("access_token"))?.value;
     if (!accessToken) {
@@ -351,9 +452,39 @@ async function ensureReady() {
         return false;
     }
 
+    const repo = await ensureRepoGenerated(accessToken);
+    if (!repo) {
+        // Repo creation failed (rate limit, name collision, network, etc.)
+        setAppLoggedIn(false);
+        return false;
+    }
+
     const installed = await isAppInstalled(accessToken);
     if (!installed) {
-        startOAuthFlow(`https://github.com/apps/${APP_SLUG}/installations/new`);
+        // Repo already exists at this point, so the install screen can be
+        // pre-scoped to it via suggested_target_id + repository_ids[]
+        // (documented under "Migrating OAuth Apps to GitHub Apps", but
+        // works outside that context too). This is a pre-selection, not
+        // an enforced restriction — the user can still change it on that
+        // screen, which is why installationCoversRepo below still checks.
+        const me = await fetchUser(accessToken);
+        const params = new URLSearchParams({ suggested_target_id: me.id });
+        params.append("repository_ids[]", repo.id);
+        window.location.href =
+            `https://github.com/apps/${APP_SLUG}/installations/new/permissions?${params.toString()}`;
+        return false;
+    }
+
+    const covered = await installationCoversRepo(accessToken, repo.full_name);
+    if (!covered) {
+        // App is installed, but this specific repo isn't in its granted
+        // set (skipped during install, or an install that predates this
+        // repo). There's no API path to fix this from a GitHub App user
+        // access token (PUT /user/installations/.../repositories/... only
+        // works with classic PATs), so send them to the installation's
+        // own config page to add it manually.
+        const installationId = await getInstallationId(accessToken);
+        window.location.href = `https://github.com/settings/installations/${installationId}`;
         return false;
     }
 
