@@ -9,6 +9,12 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') {
+		navigator.wakeLock?.request('screen');
+	}
+});
+
 const code = new URLSearchParams(location.search).get("code");
 if (code) {
 	history.replaceState(history.state, document.title, location.pathname);
