@@ -1,12 +1,13 @@
 import codeMap from "./code-map.json" with { type: "json" };
 
+const pointerMoveEventName = "onpointerrawupdate" in window ? "onpointerrawupdate" : "onpointermove";
 const RTCPeerConnectionInit = {
 	iceServers: [
 		{ urls: "stun:stun.l.google.com:19302" }
 	]
 };
 
-export default function createClient() {
+export default function createClientPeer() {
 	// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 
 	const peer = new RTCPeerConnection(RTCPeerConnectionInit);
@@ -49,7 +50,7 @@ export default function createClient() {
 	});
 
 	// pointerrawupdate, getCoalescedEvents
-	window["onpointerrawupdate" in window ? "onpointerrawupdate" : "onpointermove"] = onPointerMove.bind(pointerMovementChannel);
+	window[pointerMoveEventName] = onPointerMove.bind(pointerMovementChannel);
 	window.onpointerdown = onPointerButtonEvent.bind(pointerClickChannel, true);
 	window.onpointerup = onPointerButtonEvent.bind(pointerClickChannel, false);
 
@@ -59,6 +60,8 @@ export default function createClient() {
 	screenResizeChannel.addEventListener("open", onResize.bind(screenResizeChannel)); // So it automatically resizes in the beginning
 	window.onresize = onResize.bind(screenResizeChannel); // ResizeObserver 
 	window.onwheel = onScroll.bind(pointerScrollChannel);
+
+	return peer;
 }
 
 const screenshare = document.getElementById("screenshare");
