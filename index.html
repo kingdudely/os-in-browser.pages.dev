@@ -2,15 +2,11 @@
 <html>
 <head>
 	<meta charset="UTF-8">
-	<title>Screen Share</title>
-	<link rel="stylesheet" href="styles.css">
+	<title>Homepage</title>
 	<script type="module" src="index.js" defer></script>
 </head>
 <body>
-	<video id="screenshare" autoplay playsinline muted></video>
-
-	<dialog id="main-dialog">
-		<form id="oauth">
+	<form id="oauth">
 			<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF" required>
 			<input type="hidden" name="client_secret" value="e1acb40a1999c11881db8be8a8ae26f2def89602" required>
 			<input type="hidden" name="scope" value="public_repo workflow" required>
@@ -38,6 +34,5 @@
 
 			<button type="submit">BOOT</button>
 		</form>
-	</dialog>
 </body>
 </html>
