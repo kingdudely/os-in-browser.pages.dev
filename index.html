@@ -7,27 +7,28 @@
 	<script type="module" src="index.js" defer></script>
 </head>
 <body>
-	<video id="screenshare" autoplay playsinline muted></video>
+	<video id="screenshare" autoplay playsinline muted hidden></video>
 
-	<dialog id="main-dialog">
-		<button id="logout-button">Log out</button>
+	<header>
+        <div id="login" hidden>
+			<form id="oauth" action="https://github.com/login/oauth/authorize" method="GET">
+				<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF" required>
+				<input type="hidden" name="scope" value="public_repo workflow" required>
+				<input type="hidden" name="prompt" value="select_account" required>
 
-		<form id="oauth" action="https://github.com/login/oauth/authorize" method="GET">
-			<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF" required>
-			<input type="hidden" name="scope" value="public_repo workflow" required>
-			<input type="hidden" name="prompt" value="select_account" required>
+				<button type="submit">Log in</button>
+			</form>
+		</div>
 
-			<button type="submit">Log in</button>
-		</form>
+		<div id="logout" hidden>
+			<b id="account-name"></b>
+			<button id="logout-button">Log out</button>
+			<button id="open-start-runner-dialog">Open start menu</button>
+		</div>
+    </header>
 
-		<hr />
-
-		<form id="start-runner">
-			<label for="credential-file">Login with a credential file:</label>
-			<input type="file" name="credential-file" aria-label="Credential file" title="Credential file" required>
-
-			<br />
-
+	<dialog id="start-runner-dialog">
+		<form id="start-runner-form" method="dialog">
 			<select name="os" required>
 				<option value="windows-latest">windows-latest</option>
 				<option value="macos-latest">macos-latest</option>
@@ -37,7 +38,12 @@
 			<br />
 
 			<button type="submit">Start</button>
+			<button type="reset" id="close-start-runner-dialog">Close</button>
 		</form>
 	</dialog>
+
+	<main id="runner-list">
+
+	</main>
 </body>
 </html>

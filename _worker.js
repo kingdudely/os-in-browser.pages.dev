@@ -10,7 +10,7 @@ export default {
                 const code = await request.text();
                 if (!code) return new Response("Expected code in request body text", { status: 400 });
 
-                return fetch("https://github.com/login/oauth/access_token", {
+                return gh("https://github.com/login/oauth/access_token", {
                     "method": "POST",
                     "headers": {
                         "Accept": "application/json",
@@ -35,6 +35,8 @@ export default {
                     headers: {
                         "Authorization": `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`,
                         "Accept": "application/vnd.github+json",
+                        "Content-Type": "application/json",
+                        "User-Agent": "cloudflare-worker",
                     },
                     body: JSON.stringify({ access_token: accessToken }),
                 })

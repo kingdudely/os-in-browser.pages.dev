@@ -18,29 +18,27 @@ document.addEventListener('visibilitychange', () => {
 const code = new URLSearchParams(location.search).get("code");
 if (code) {
 	history.replaceState(history.state, document.title, location.pathname);
-	const oauth = document.getElementById("oauth");
-	oauth.code.value = code;
-	oauth.requestSubmit(document.getElementById("download-access-token"));
+	await setAccessToken(code);
 	// return
 }
+
+setLoggedInUIState(await getAccessToken());
 
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
-document.getElementById("start-runner").addEventListener("submit", async (event) => {
+const startRunnerDialog = document.getElementById("start-runner-dialog");
+document.getElementById("open-start-runner-dialog").addEventListener("click", () => startRunnerDialog.showModal());
+document.getElementById("close-start-runner-dialog").addEventListener("click", () => startRunnerDialog.close())
+
+document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
 	// event.preventDefault();
 	// mainDialog.close();
 
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
-	const credentialFile = formData.get("credential-file");
-	if (!credentialFile) return;
 
-	const accessToken = new URLSearchParams(await credentialFile.text()).get("access_token");
-	if (!accessToken) {
-		alert("Invalid credential file");
-		return;
-	}
+	
 
 	const headers = {
 		"Authorization": `token ${accessToken}`,
@@ -84,4 +82,53 @@ document.getElementById("start-runner").addEventListener("submit", async (event)
 		}),
 		"method": "POST",
 	});
-})
+});
+
+async function gh(path, method, body) {
+	return fetch(`https://api.github.com${path}`, {
+		"method": method,
+		"headers": {
+			"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
+			"Accept": "application/vnd.github+json",
+			"Content-Type": "application/json",
+			// browser sets useragent for us
+		},
+		"body": JSON.stringify(body)
+	});
+}
+
+async function getAccessToken() {
+	const accessToken = localStorage.getItem("access_token");
+	const isValidAccessToken = (await gh("/user")).ok;
+	if (!isValidAccessToken) {
+		alert("Logged in  with invalid credentials, logging out");
+		await logOut();
+		return null;
+	}
+
+	return accessToken;
+}
+
+async function setAccessToken(code) {
+	const accessToken = (await (await fetch("/get-access-token", {
+		"method": "POST",
+		"body": code
+	})).json()).access_token;
+
+	localStorage.setItem("access_token", accessToken)
+}
+
+async function logOut() {
+	const accessToken = localStorage.getItem("access_token");
+	localStorage.remoteItem("access_token");
+
+	await fetch("/delete-access-token", {
+		"method": "POST",
+		"body": accessToken
+	})
+}
+
+function setLoggedInUIState(loggedIn) {
+	document.getElementById("logout").hidden = loggedIn;
+	document.getElementById("login").hidden = !loggedIn;
+}
