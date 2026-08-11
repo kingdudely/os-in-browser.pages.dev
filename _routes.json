@@ -2,7 +2,7 @@
     "version": 1,
     "include": [
         "/get-access-token",
-        "delete-access-token"
+        "/delete-access-token"
     ],
     "exclude": []
 }
