@@ -22,15 +22,17 @@ if (code) {
 	// return
 }
 
-const user = await gh("GET", "/user");
-setLoggedInUIState(true);
-
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
+const username = (await gh("GET", "/user")).login;
+
+document.getElementById("account-name").textContent = username;
+document.getElementById("logout-button").addEventListener("click", logOut);
+
 const startRunnerDialog = document.getElementById("start-runner-dialog");
 document.getElementById("open-start-runner-dialog").addEventListener("click", () => startRunnerDialog.showModal());
-document.getElementById("close-start-runner-dialog").addEventListener("click", () => startRunnerDialog.close())
+document.getElementById("close-start-runner-dialog").addEventListener("click", () => startRunnerDialog.close());
 
 document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
 	// event.preventDefault();
@@ -39,44 +41,28 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
 
-	const owner = (await gh("/user", { headers })).json()).login;
-
-	const repoEndpoint = `https://api.github.com/repos/${owner}/${TEMPLATE_REPO}`;
-	const existingRepoResponse = await fetch(repoEndpoint, { headers });
-
-	if (existingRepoResponse.status === 404) {
-		// User doesn't have the host repo yet — generate one from the template.
-		const generateResponse = await fetch(`https://api.github.com/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
-			headers,
-			method: "POST",
-			body: JSON.stringify({
-				"owner": owner,
-				"name": TEMPLATE_REPO,
-				"include_all_branches": false,
-				"private": false
-			}),
+	const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
+	try {
+		await gh("GET", repoEndpoint);
+	} catch {
+		await gh("POST", `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
+			"owner": username,
+			"name": TEMPLATE_REPO,
+			"include_all_branches": false,
+			"private": false
 		});
-
-		if (!generateResponse.ok) {
-			throw new Error(`Failed to generate repo from template: ${generateResponse.status} ${await generateResponse.text()}`);
-		}
-	} else if (!existingRepoResponse.ok) {
-		throw new Error(`Failed to check for existing repo: ${existingRepoResponse.status} ${await existingRepoResponse.text()}`);
 	}
 
-	const branch = (await (await fetch(repoEndpoint, { headers })).json()).default_branch;
-	await fetch(`${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
-		"headers": headers,
-		"body": JSON.stringify({
-			"ref": branch,
-			"inputs": {
-				"os": os,
-				"topic-name": topicName
-			}
-		}),
-		"method": "POST",
+	const branch = (await gh(repoEndpoint)).default_branch;
+	await gh("POST", `${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
+		"ref": branch,
+		"inputs": {
+			"os": os
+		}
 	});
 });
+
+setLoggedInUIState(true);
 
 async function gh(method, path, body) {
 	const response = await fetch(`https://api.github.com${path}`, {
@@ -97,7 +83,7 @@ async function gh(method, path, body) {
 	}
 
 	if (!response.ok) {
-		throw new Error(`Got status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
+		throw new Error(`Got HTTP status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
 	}
 
 	return json;
