@@ -22,7 +22,8 @@ if (code) {
 	// return
 }
 
-setLoggedInUIState(await getAccessToken());
+const user = await gh("GET", "/user");
+setLoggedInUIState(true);
 
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
@@ -38,14 +39,7 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
 
-	
-
-	const headers = {
-		"Authorization": `token ${accessToken}`,
-		"Content-Type": "application/json"
-	};
-
-	const owner = (await (await fetch("https://api.github.com/user", { headers })).json()).login;
+	const owner = (await gh("/user", { headers })).json()).login;
 
 	const repoEndpoint = `https://api.github.com/repos/${owner}/${TEMPLATE_REPO}`;
 	const existingRepoResponse = await fetch(repoEndpoint, { headers });
@@ -84,8 +78,8 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	});
 });
 
-async function gh(path, method, body) {
-	return fetch(`https://api.github.com${path}`, {
+async function gh(method, path, body) {
+	const response = await fetch(`https://api.github.com${path}`, {
 		"method": method,
 		"headers": {
 			"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
@@ -95,18 +89,18 @@ async function gh(path, method, body) {
 		},
 		"body": JSON.stringify(body)
 	});
-}
 
-async function getAccessToken() {
-	const accessToken = localStorage.getItem("access_token");
-	const isValidAccessToken = (await gh("/user")).ok;
-	if (!isValidAccessToken) {
-		alert("Logged in  with invalid credentials, logging out");
+	const json = response.json();
+
+	if (response.status === 401) {
 		await logOut();
-		return null;
 	}
 
-	return accessToken;
+	if (!response.ok) {
+		throw new Error(`Got status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
+	}
+
+	return json;
 }
 
 async function setAccessToken(code) {
@@ -121,6 +115,7 @@ async function setAccessToken(code) {
 async function logOut() {
 	const accessToken = localStorage.getItem("access_token");
 	localStorage.remoteItem("access_token");
+	setLoggedInUIState(false);
 
 	await fetch("/delete-access-token", {
 		"method": "POST",
