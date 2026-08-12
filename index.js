@@ -29,17 +29,21 @@ try {
 
 import createClientPeer from "./createClientPeer.js";
 
+const TEMPLATE_OWNER = "kingdudely";
+const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
+const etagCache = new Map(); // path -> { etag, data }
+const rows = new Map();
+const runnerList = document.getElementById("runner-list");
+const runnerListEntryTemplate = document.getElementById("runner-list-entry");
+
+refreshStatuses();
+setInterval(refreshStatuses, 1000);
+
 document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'visible') {
 		navigator.wakeLock?.request('screen');
 	}
 });
-
-const TEMPLATE_OWNER = "kingdudely";
-const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
-
-refreshStatuses();
-setInterval(refreshStatuses, 1000);
 
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
@@ -71,8 +75,6 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 		}
 	});
 });
-
-const etagCache = new Map(); // path -> { etag, data }
 
 async function gh(method, path, body) {
 	const cached = etagCache.get(path);
@@ -146,9 +148,6 @@ async function refreshStatuses() {
 	statuses.forEach(renderStatus);
 }
 
-const rows = new Map();
-const runnerList = document.getElementById("runner-list");
-const runnerListEntryTemplate = document.getElementById("runner-list-entry");
 function renderStatus(status) {
 	let row = rows.get(status.context);
 	if (!row) {
