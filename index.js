@@ -9,26 +9,13 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
-import createClientPeer from "./createClientPeer.js";
-
-refreshStatuses();
-setInterval(refreshStatuses, 1000);
-
-document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'visible') {
-		navigator.wakeLock?.request('screen');
-	}
-});
-
+// Log in handling
 const code = new URLSearchParams(location.search).get("code");
 if (code) {
 	history.replaceState(history.state, document.title, location.pathname);
 	await setAccessToken(code);
 	// return
 }
-
-const TEMPLATE_OWNER = "kingdudely";
-const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
 let username;
 try {
@@ -37,6 +24,21 @@ try {
 } catch {
 	goToLogInScreen();
 }
+// --
+
+import createClientPeer from "./createClientPeer.js";
+
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') {
+		navigator.wakeLock?.request('screen');
+	}
+});
+
+refreshStatuses();
+setInterval(refreshStatuses, 1000);
+
+const TEMPLATE_OWNER = "kingdudely";
+const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
