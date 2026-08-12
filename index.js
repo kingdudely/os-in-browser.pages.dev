@@ -9,6 +9,11 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
+import createClientPeer from "./createClientPeer.js";
+
+refreshStatuses();
+setInterval(refreshStatuses, 1000);
+
 document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'visible') {
 		navigator.wakeLock?.request('screen');
@@ -113,4 +118,54 @@ function goToLogInScreen() {
 	});
 
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+}
+
+let statusETag = null;
+async function refreshStatuses() {
+	const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
+
+	let sha;
+	try {
+		const branch = (await gh("GET", repoEndpoint)).default_branch;
+		sha = (await gh("GET", `${repoEndpoint}/commits/${branch}`)).sha;
+	} catch {
+		return; // repo/branch not there yet
+	}
+
+	const headers = {
+		"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
+		"Accept": "application/vnd.github+json"
+	};
+	if (statusETag) headers["If-None-Match"] = statusETag;
+
+	const response = await fetch(`https://api.github.com${repoEndpoint}/commits/${sha}/status`, { headers });
+	if (response.status === 304) return;
+	statusETag = response.headers.get("ETag");
+	if (!response.ok) return;
+
+	const { statuses } = await response.json();
+	statuses.forEach(renderStatus);
+}
+
+const rows = new Map();
+const runnerList = document.getElementById("runner-list");
+const runnerListEntryTemplate = document.getElementById("runner-list-entry");
+function renderStatus(status) {
+	let row = rows.get(status.context);
+	if (!row) {
+		row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
+		row.querySelector(".connect-button").addEventListener("click", () => connect(row));
+		rows.set(status.context, row);
+		tbody.appendChild(row);
+	}
+
+	row._status = status;
+	row.querySelector(".created-at").textContent = new Date(status.created_at).toLocaleString();
+	row.querySelector(".os").textContent = status.description || "unknown";
+}
+
+function connect(row) {
+	const wsUrl = new URL(row._status.target_url);
+	wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+	createClientPeer(wsUrl.toString());
 }

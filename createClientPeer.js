@@ -61,6 +61,44 @@ export default function createClientPeer() {
 	window.onresize = onResize.bind(screenResizeChannel); // ResizeObserver 
 	window.onwheel = onScroll.bind(pointerScrollChannel);
 
+	const ws = new WebSocket(signalingUrl);
+
+	function send(type, message) {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ type, message }));
+		}
+	}
+
+	ws.addEventListener("open", () => {
+		ws.send(localStorage.getItem("access_token")); // raw, matches server's ws.once('message', ...) handshake
+	});
+
+	peer.addEventListener("icecandidate", (event) => {
+		if (event.candidate) send("ice-candidate", event.candidate);
+	});
+
+	ws.addEventListener("message", async (event) => {
+		let data;
+		try { data = JSON.parse(event.data); } catch { return; }
+
+		switch (data.type) {
+			case "offer":
+				try {
+					await peer.setRemoteDescription(data.message);
+					const answer = await peer.createAnswer();
+					await peer.setLocalDescription(answer);
+					send("answer", peer.localDescription);
+				} catch (err) {
+					console.error("Failed to handle offer:", err);
+				}
+				break;
+			case "ice-candidate":
+				try { await peer.addIceCandidate(data.message); }
+				catch (err) { console.error("Failed to add ICE candidate:", err); }
+				break;
+		}
+	});
+
 	return peer;
 }
 
