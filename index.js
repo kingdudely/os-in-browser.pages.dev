@@ -108,4 +108,5 @@ function logOut() {
 	const accessToken = localStorage.getItem("access_token");
 	if (accessToken) navigator.sendBeacon("/delete-access-token", accessToken);
 	localStorage.removeItem("access_token");
+	location.reload();
 }
