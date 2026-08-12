@@ -30,13 +30,7 @@ try {
 	username = (await gh("GET", "/user")).login;
 	document.body.hidden = false;
 } catch {
-	const parameters = new URLSearchParams({
-		"client_id": "Ov23lipwX2GRkJRc0FdF",
-		"prompt": "select_account",
-		"scope": "public_repo workflow"
-	});
-
-	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+	goToLogInScreen();
 }
 
 document.getElementById("account-name").textContent = username;
@@ -108,5 +102,15 @@ function logOut() {
 	const accessToken = localStorage.getItem("access_token");
 	if (accessToken) navigator.sendBeacon("/delete-access-token", accessToken);
 	localStorage.removeItem("access_token");
-	location.reload();
+	goToLogInScreen();
+}
+
+function goToLogInScreen() {
+	const parameters = new URLSearchParams({
+		"client_id": "Ov23lipwX2GRkJRc0FdF",
+		"prompt": "select_account",
+		"scope": "public_repo workflow"
+	});
+
+	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
