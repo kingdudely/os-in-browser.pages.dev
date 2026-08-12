@@ -38,8 +38,6 @@ try {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
-document.body.hidden = false;
-
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
@@ -109,3 +107,5 @@ function logOut() {
 	navigator.sendBeacon("/delete-access-token", localStorage.getItem("access_token"));
 	localStorage.removeItem("access_token");
 }
+
+document.body.hidden = false;
