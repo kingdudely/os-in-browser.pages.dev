@@ -38,6 +38,8 @@ try {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
+document.body.hidden = false;
+
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
