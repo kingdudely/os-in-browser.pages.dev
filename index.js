@@ -22,7 +22,7 @@ try {
 	username = (await gh("GET", "/user")).login;
 	document.body.hidden = false;
 } catch {
-	goToLogInScreen();
+	// goToLogInScreen();
 }
 // --
 
