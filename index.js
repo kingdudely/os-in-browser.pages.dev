@@ -17,6 +17,7 @@ if (code) {
 	// return
 }
 
+const etagCache = new Map(); // path -> { etag, data }
 let username;
 try {
 	username = (await gh("GET", "/user")).login;
@@ -30,7 +31,6 @@ import createClientPeer from "./createClientPeer.js";
 
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
-const etagCache = new Map(); // path -> { etag, data }
 const rows = new Map();
 const runnerList = document.getElementById("runner-list");
 const runnerListEntryTemplate = document.getElementById("runner-list-entry");
