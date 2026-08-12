@@ -11,13 +11,11 @@
 
 	<header>
         <div id="login" hidden>
-			<form id="oauth" action="https://github.com/login/oauth/authorize" method="GET">
-				<input type="hidden" name="client_id" value="Ov23lipwX2GRkJRc0FdF" required>
-				<input type="hidden" name="scope" value="public_repo workflow" required>
-				<input type="hidden" name="prompt" value="select_account" required>
-
-				<button type="submit">Log in</button>
-			</form>
+			<button>
+				<a href="https://github.com/login/oauth/authorize?client_id=Ov23lipwX2GRkJRc0FdF&prompt=select_account&scope=public_repo%20workflow">
+					Log in
+				</a>
+			</button>
 		</div>
 
 		<div id="logout" hidden>
