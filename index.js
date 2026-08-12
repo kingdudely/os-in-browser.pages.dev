@@ -105,6 +105,7 @@ async function setAccessToken(code) {
 }
 
 function logOut() {
-	navigator.sendBeacon("/delete-access-token", localStorage.getItem("access_token"));
+	const accessToken = localStorage.getItem("access_token");
+	if (accessToken) navigator.sendBeacon("/delete-access-token", accessToken);
 	localStorage.removeItem("access_token");
 }
