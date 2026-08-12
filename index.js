@@ -138,38 +138,39 @@ async function refreshStatuses() {
 	try {
 		({ workflow_runs: runs } = await gh(
 			"GET",
-			`${repoEndpoint}/actions/runs?status=in_progress&per_page=20`
+			`${repoEndpoint}/actions/runs?status=in_progress&per_page=100`
 		));
 	} catch {
 		return;
 	}
 
-	if (!runs.length) {
-		runnerList.replaceChildren();
-		return;
+	const activeIds = new Set(runs.map((run) => run.id));
+
+	// drop rows for runs that are no longer in_progress
+	for (const [id, row] of rows) {
+		if (!activeIds.has(id)) {
+			row.remove();
+			rows.delete(id);
+		}
 	}
 
-	const results = await Promise.all(
-		runs.map(async (run) => {
-			try {
-				const { statuses } = await gh("GET", `${repoEndpoint}/commits/${run.head_sha}/status`);
-				return { run, status: statuses[0] ?? null };
-			} catch {
-				return { run, status: null };
-			}
-		})
-	);
-
-	runnerList.replaceChildren();
-	results.forEach(({ run, status }) => renderStatus(status, run));
+	await Promise.all(runs.map(async (run) => {
+		let statuses;
+		try {
+			({ statuses } = await gh("GET", `${repoEndpoint}/commits/${run.head_sha}/status`));
+		} catch {
+			return;
+		}
+		if (statuses[0]) renderStatus(run, statuses[0]);
+	}));
 }
 
-function renderStatus(status) {
-	let row = rows.get(status.context);
+function renderStatus(run, status) {
+	let row = rows.get(run.id);
 	if (!row) {
 		row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
 		row.querySelector(".connect-button").addEventListener("click", () => connect(row));
-		rows.set(status.context, row);
+		rows.set(run.id, row);
 		runnerList.appendChild(row);
 	}
 
