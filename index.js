@@ -28,6 +28,7 @@ const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 let username;
 try {
 	username = (await gh("GET", "/user")).login;
+	document.body.hidden = false;
 } catch {
 	const parameters = new URLSearchParams({
 		"client_id": "Ov23lipwX2GRkJRc0FdF",
@@ -107,5 +108,3 @@ function logOut() {
 	navigator.sendBeacon("/delete-access-token", localStorage.getItem("access_token"));
 	localStorage.removeItem("access_token");
 }
-
-document.body.hidden = false;
