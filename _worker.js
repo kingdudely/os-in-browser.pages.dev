@@ -10,7 +10,7 @@ export default {
                 const code = await request.text();
                 if (!code) return new Response("Expected code in request body text", { status: 400 });
 
-                return gh("https://github.com/login/oauth/access_token", {
+                return fetch("https://github.com/login/oauth/access_token", {
                     "method": "POST",
                     "headers": {
                         "Accept": "application/json",
