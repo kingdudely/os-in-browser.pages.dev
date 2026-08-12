@@ -71,27 +71,33 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	});
 });
 
-async function gh(method, path, body) {
+const etagCache = new Map();
+async function ghFactory(method, path, body) {
+	const cached = etagCache.get(path);
+	const headers = {
+		"Authorization": `Bearer ${this}`,
+		"Accept": "application/vnd.github+json",
+		"Content-Type": "application/json",
+		// browser sets useragent for us
+	};
+	if (method === "GET" && cached) headers["If-None-Match"] = cached.etag;
+
 	const response = await fetch(`https://api.github.com${path}`, {
 		"method": method,
-		"headers": {
-			"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
-			"Accept": "application/vnd.github+json",
-			"Content-Type": "application/json",
-			// browser sets useragent for us
-		},
-		"body": JSON.stringify(body)
+		"headers": headers,
+		"body": body !== undefined ? JSON.stringify(body) : undefined
 	});
+
+	if (response.status === 304) return cached.data;
 
 	const json = await response.json();
 
-	if (response.status === 401) {
-		logOut();
-	}
-	
 	if (!response.ok) {
 		throw new Error(`Got HTTP status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
 	}
+
+	const etag = response.headers.get("ETag");
+	if (method === "GET" && etag) etagCache.set(path, { etag, data: json });
 
 	return json;
 }
@@ -122,30 +128,18 @@ function goToLogInScreen() {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
-let statusETag = null;
 async function refreshStatuses() {
 	const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
 
-	let sha;
+	let repo, sha;
 	try {
-		const branch = (await gh("GET", repoEndpoint)).default_branch;
-		sha = (await gh("GET", `${repoEndpoint}/commits/${branch}`)).sha;
+		repo = await gh("GET", repoEndpoint);
+		sha = (await gh("GET", `${repoEndpoint}/commits/${repo.default_branch}`)).sha;
 	} catch {
 		return; // repo/branch not there yet
 	}
 
-	const headers = {
-		"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
-		"Accept": "application/vnd.github+json"
-	};
-	if (statusETag) headers["If-None-Match"] = statusETag;
-
-	const response = await fetch(`https://api.github.com${repoEndpoint}/commits/${sha}/status`, { headers });
-	if (response.status === 304) return;
-	statusETag = response.headers.get("ETag");
-	if (!response.ok) return;
-
-	const { statuses } = await response.json();
+	const { statuses } = await gh("GET", `${repoEndpoint}/commits/${sha}/status`);
 	statuses.forEach(renderStatus);
 }
 
