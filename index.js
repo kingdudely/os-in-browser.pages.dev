@@ -25,7 +25,18 @@ if (code) {
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
 
-const username = (await gh("GET", "/user")).login;
+let username;
+try {
+	username = (await gh("GET", "/user")).login;
+} catch {
+	const parameters = new URLSearchParams({
+		"client_id": "Ov23lipwX2GRkJRc0FdF",
+		"prompt": "select_account",
+		"scope": "public_repo workflow"
+	});
+
+	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+}
 
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
@@ -77,12 +88,8 @@ async function gh(method, path, body) {
 	const json = await response.json();
 
 	if (response.status === 401) {
-		await logOut();
-	} else {
-		setLoggedInUIState(true);
-	}
-
-	if (!response.ok) {
+		logOut();
+	} else if (!response.ok) {
 		throw new Error(`Got HTTP status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
 	}
 
@@ -98,18 +105,9 @@ async function setAccessToken(code) {
 	localStorage.setItem("access_token", accessToken)
 }
 
-async function logOut() {
+function logOut() {
 	const accessToken = localStorage.getItem("access_token");
 	localStorage.removeItem("access_token");
-	setLoggedInUIState(false);
-
-	await fetch("/delete-access-token", {
-		"method": "POST",
-		"body": accessToken
-	})
-}
-
-function setLoggedInUIState(loggedIn) {
-	document.getElementById("logged-in").hidden = !loggedIn;
-	document.getElementById("logged-out").hidden = loggedIn;
+	navigator.sendBeacon("/delete-access-token", accessToken);
+	location.reload();
 }
