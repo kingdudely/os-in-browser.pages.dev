@@ -108,7 +108,6 @@ async function setAccessToken(code) {
 }
 
 function logOut() {
-	const accessToken = localStorage.getItem("access_token");
+	navigator.sendBeacon("/delete-access-token", localStorage.getItem("access_token"));
 	localStorage.removeItem("access_token");
-	navigator.sendBeacon("/delete-access-token", accessToken);
 }
