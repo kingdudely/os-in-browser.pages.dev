@@ -1,5 +1,9 @@
 import codeMap from "./code-map.json" with { type: "json" };
 
+const screenshare = document.getElementById("screenshare");
+const mainContainer = document.getElementById("main-container");
+const sharedBytes = new Uint8Array(13);
+const sharedView = new DataView(sharedBytes.buffer);
 const pointerMoveEventName = "onpointerrawupdate" in window ? "onpointerrawupdate" : "onpointermove";
 const RTCPeerConnectionInit = {
 	iceServers: [
@@ -12,6 +16,12 @@ export default function createClientPeer() {
 
 	const peer = new RTCPeerConnection(RTCPeerConnectionInit);
 	peer.addEventListener("track", onTrack);
+	
+	peer.addEventListener("connectionstatechange", () => {
+		if (["disconnected", "closed"].includes(peer.connectionState)) {
+			setRemoteControlMode(false);
+		}
+	})
 
 	peer.addTransceiver("video", {
 		direction: "recvonly"
@@ -99,12 +109,10 @@ export default function createClientPeer() {
 		}
 	});
 
+	setRemoteControlMode(true);
+
 	return peer;
 }
-
-const screenshare = document.getElementById("screenshare");
-const sharedBytes = new Uint8Array(13);
-const sharedView = new DataView(sharedBytes.buffer);
 
 function onTrack(event) {
 	screenshare.srcObject = event.streams[0];
@@ -185,4 +193,9 @@ function triggerImmersiveMode() {
 			"unadjustedMovement": true
 		}).catch(() => {});
 	}
+}
+
+function setRemoteControlMode(isInRemoteControlMode) {
+	mainContainer.hidden = isInRemoteControlMode;
+	screenshare.hidden = !isInRemoteControlMode;
 }

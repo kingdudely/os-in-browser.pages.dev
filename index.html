@@ -9,44 +9,46 @@
 <body hidden>
 	<video id="screenshare" autoplay playsinline muted hidden></video>
 
-	<header>
-		<b id="account-name"></b>
-		<button id="logout-button">Log out</button>
-    </header>
+	<div id="main-container">
+		<header>
+			<b id="account-name"></b>
+			<button id="logout-button">Log out</button>
+		</header>
 
-	<main>
-		<form id="start-runner-form">
-			<select name="os" required>
-				<option value="windows-latest">windows-latest</option>
-				<option value="macos-latest">macos-latest</option>
-				<option value="ubuntu-latest">ubuntu-latest</option>
-			</select>
+		<main>
+			<form id="start-runner-form">
+				<select name="os" required>
+					<option value="windows-latest">windows-latest</option>
+					<option value="macos-latest">macos-latest</option>
+					<option value="ubuntu-latest">ubuntu-latest</option>
+				</select>
 
-			<br />
+				<br />
 
-			<button type="submit">Start</button>
-		</form>
+				<button type="submit">Start</button>
+			</form>
 
-		<hr />
+			<hr />
 
-		<table>
-			<thead>
-				<tr>
-					<th>Date Created</th>
-					<th>OS</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody id="runner-list"></tbody>
-		</table>
-	</main>
+			<table>
+				<thead>
+					<tr>
+						<th>Date Created</th>
+						<th>OS</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="runner-list"></tbody>
+			</table>
+		</main>
 
-	<template id="runner-list-entry">
-		<tr>
-			<td class="created-at"></td>
-			<td class="os"></td>
-			<td><button class="connect-button" type="button">Connect</button></td>
-		</tr>
-	</template>
+		<template id="runner-list-entry">
+			<tr>
+				<td class="created-at"></td>
+				<td class="os"></td>
+				<td><button class="connect-button" type="button">Connect</button></td>
+			</tr>
+		</template>
+	</div>
 </body>
 </html>
