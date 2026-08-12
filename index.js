@@ -74,7 +74,7 @@ async function gh(method, path, body) {
 		"body": JSON.stringify(body)
 	});
 
-	const json = response.json();
+	const json = await response.json();
 
 	if (response.status === 401) {
 		await logOut();
@@ -110,6 +110,6 @@ async function logOut() {
 }
 
 function setLoggedInUIState(loggedIn) {
-	document.getElementById("logged-in").hidden = loggedIn;
-	document.getElementById("logged-out").hidden = !loggedIn;
+	document.getElementById("logged-in").hidden = !loggedIn;
+	document.getElementById("logged-out").hidden = loggedIn;
 }
