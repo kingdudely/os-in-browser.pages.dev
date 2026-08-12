@@ -71,14 +71,14 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	});
 });
 
-const etagCache = new Map();
-async function ghFactory(method, path, body) {
+const etagCache = new Map(); // path -> { etag, data }
+
+async function gh(method, path, body) {
 	const cached = etagCache.get(path);
 	const headers = {
-		"Authorization": `Bearer ${this}`,
+		"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
 		"Accept": "application/vnd.github+json",
 		"Content-Type": "application/json",
-		// browser sets useragent for us
 	};
 	if (method === "GET" && cached) headers["If-None-Match"] = cached.etag;
 
@@ -89,6 +89,8 @@ async function ghFactory(method, path, body) {
 	});
 
 	if (response.status === 304) return cached.data;
+
+	if (response.status === 401) logOut();
 
 	const json = await response.json();
 
