@@ -62,8 +62,6 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	});
 });
 
-setLoggedInUIState(true);
-
 async function gh(method, path, body) {
 	const response = await fetch(`https://api.github.com${path}`, {
 		"method": method,
@@ -80,6 +78,8 @@ async function gh(method, path, body) {
 
 	if (response.status === 401) {
 		await logOut();
+	} else {
+		setLoggedInUIState(true);
 	}
 
 	if (!response.ok) {
