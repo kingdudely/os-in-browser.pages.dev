@@ -100,7 +100,7 @@ async function setAccessToken(code) {
 
 async function logOut() {
 	const accessToken = localStorage.getItem("access_token");
-	localStorage.remoteItem("access_token");
+	localStorage.removeItem("access_token");
 	setLoggedInUIState(false);
 
 	await fetch("/delete-access-token", {
