@@ -41,10 +41,6 @@ try {
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
-const startRunnerDialog = document.getElementById("start-runner-dialog");
-document.getElementById("open-start-runner-dialog").addEventListener("click", () => startRunnerDialog.showModal());
-document.getElementById("close-start-runner-dialog").addEventListener("click", () => startRunnerDialog.close());
-
 document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
 	// event.preventDefault();
 	// mainDialog.close();

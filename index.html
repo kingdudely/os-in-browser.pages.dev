@@ -17,8 +17,8 @@
 		</div>
     </header>
 
-	<dialog id="start-runner-dialog">
-		<form id="start-runner-form" method="dialog">
+	<main id="runner-list">
+		<form id="start-runner-form">
 			<select name="os" required>
 				<option value="windows-latest">windows-latest</option>
 				<option value="macos-latest">macos-latest</option>
@@ -28,12 +28,9 @@
 			<br />
 
 			<button type="submit">Start</button>
-			<button type="reset" id="close-start-runner-dialog">Close</button>
 		</form>
-	</dialog>
 
-	<main id="runner-list">
-
+		<hr />
 	</main>
 
 	<template id="runner-list-entry">
