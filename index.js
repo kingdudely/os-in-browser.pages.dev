@@ -89,7 +89,9 @@ async function gh(method, path, body) {
 
 	if (response.status === 401) {
 		logOut();
-	} else if (!response.ok) {
+	}
+	
+	if (!response.ok) {
 		throw new Error(`Got HTTP status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
 	}
 
@@ -109,5 +111,4 @@ function logOut() {
 	const accessToken = localStorage.getItem("access_token");
 	localStorage.removeItem("access_token");
 	navigator.sendBeacon("/delete-access-token", accessToken);
-	location.reload();
 }
