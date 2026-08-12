@@ -153,7 +153,7 @@ function renderStatus(status) {
 		row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
 		row.querySelector(".connect-button").addEventListener("click", () => connect(row));
 		rows.set(status.context, row);
-		tbody.appendChild(row);
+		runnerList.appendChild(row);
 	}
 
 	row._status = status;
