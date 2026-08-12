@@ -42,7 +42,7 @@ document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
 document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
-	// event.preventDefault();
+	event.preventDefault();
 	// mainDialog.close();
 
 	const formData = new FormData(event.target);
