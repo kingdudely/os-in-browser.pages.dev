@@ -34,11 +34,11 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
-refreshStatuses();
-setInterval(refreshStatuses, 1000);
-
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
+
+refreshStatuses();
+setInterval(refreshStatuses, 1000);
 
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
