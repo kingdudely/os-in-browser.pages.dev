@@ -31,6 +31,8 @@ import createClientPeer from "./createClientPeer.js";
 
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
+const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
+
 const rows = new Map();
 const runnerList = document.getElementById("runner-list");
 const runnerListEntryTemplate = document.getElementById("runner-list-entry");
@@ -54,7 +56,6 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
 
-	const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
 	try {
 		await gh("GET", repoEndpoint);
 	} catch {
@@ -133,18 +134,34 @@ function goToLogInScreen() {
 }
 
 async function refreshStatuses() {
-	const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
-
-	let repo, sha;
+	let runs;
 	try {
-		repo = await gh("GET", repoEndpoint);
-		sha = (await gh("GET", `${repoEndpoint}/commits/${repo.default_branch}`)).sha;
+		({ workflow_runs: runs } = await gh(
+			"GET",
+			`${repoEndpoint}/actions/runs?status=in_progress&per_page=20`
+		));
 	} catch {
-		return; // repo/branch not there yet
+		return;
 	}
 
-	const { statuses } = await gh("GET", `${repoEndpoint}/commits/${sha}/status`);
-	statuses.forEach(renderStatus);
+	if (!runs.length) {
+		runnerList.replaceChildren();
+		return;
+	}
+
+	const results = await Promise.all(
+		runs.map(async (run) => {
+			try {
+				const { statuses } = await gh("GET", `${repoEndpoint}/commits/${run.head_sha}/status`);
+				return { run, status: statuses[0] ?? null };
+			} catch {
+				return { run, status: null };
+			}
+		})
+	);
+
+	runnerList.replaceChildren();
+	results.forEach(({ run, status }) => renderStatus(status, run));
 }
 
 function renderStatus(status) {
