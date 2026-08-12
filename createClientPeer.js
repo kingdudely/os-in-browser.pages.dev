@@ -138,7 +138,7 @@ function onPointerMove(event) {
 function onPointerButtonEvent(isDown, event) {
 	event.preventDefault();
 	if (this.readyState !== "open") return;
-	// triggerImmersiveMode();
+	if (isDown) triggerImmersiveMode();
 
 	sharedView.setUint8(0, isDown ? 1 : 0); // isDown
 	sharedView.setUint8(1, event.button);
@@ -148,7 +148,7 @@ function onPointerButtonEvent(isDown, event) {
 function onKeyButtonEvent(isDown, event) {
 	event.preventDefault();
 	if (this.readyState !== "open" || event.repeat) return;
-	// triggerImmersiveMode();
+	if (isDown) triggerImmersiveMode();
 
 	if (!(event.code in codeMap)) {
 		console.warn(`"${event.code}" does not have a corresponding value in code-map.json`);
