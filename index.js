@@ -62,7 +62,7 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 		});
 	}
 
-	const branch = (await gh(repoEndpoint)).default_branch;
+	const branch = (await gh("GET", repoEndpoint)).default_branch;
 	await gh("POST", `${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
 		"ref": branch,
 		"inputs": {
