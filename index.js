@@ -110,6 +110,6 @@ async function logOut() {
 }
 
 function setLoggedInUIState(loggedIn) {
-	document.getElementById("logout").hidden = loggedIn;
-	document.getElementById("login").hidden = !loggedIn;
+	document.getElementById("logged-in").hidden = loggedIn;
+	document.getElementById("logged-out").hidden = !loggedIn;
 }
