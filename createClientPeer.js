@@ -11,7 +11,7 @@ const RTCPeerConnectionInit = {
 	]
 };
 
-export default function createClientPeer() {
+export default function createClientPeer(signalingUrl) {
 	// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 
 	const peer = new RTCPeerConnection(RTCPeerConnectionInit);
