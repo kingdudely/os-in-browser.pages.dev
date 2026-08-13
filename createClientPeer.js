@@ -59,7 +59,7 @@ export default function createClientPeer(signalingUrl) {
 		id: 4
 	});
 
-	// pointerrawupdate, getCoalescedEvents
+	// getCoalescedEvents, do we use addEventListener or maybe change a let variable for each data channel
 	window[pointerMoveEventName] = onPointerMove.bind(pointerMovementChannel);
 	window.onpointerdown = onPointerButtonEvent.bind(pointerClickChannel, true);
 	window.onpointerup = onPointerButtonEvent.bind(pointerClickChannel, false);
