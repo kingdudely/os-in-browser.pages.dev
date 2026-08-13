@@ -169,7 +169,7 @@ function renderStatus(run, status) {
 	let row = rows.get(run.id);
 	if (!row) {
 		row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
-		row.querySelector(".connect-button").addEventListener("click", () => createClientPeer(row._status.target_url));
+		row.querySelector(".connect-button").addEventListener("click", () => connect(row));
 		rows.set(run.id, row);
 		runnerList.appendChild(row);
 	}
@@ -177,4 +177,10 @@ function renderStatus(run, status) {
 	row._status = status;
 	row.querySelector(".created-at").textContent = new Date(status.created_at).toLocaleString();
 	row.querySelector(".os").textContent = status.description || "unknown";
+}
+
+function connect(row) {
+	const wsUrl = new URL(row._status.target_url);
+	wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+	createClientPeer(wsUrl.toString());
 }
