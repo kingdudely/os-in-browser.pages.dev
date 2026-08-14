@@ -1,7 +1,7 @@
 import codeMap from "./code-map.json" with { type: "json" };
 
 let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, screenResizeChannel, pointerScrollChannel;
-export default class ClientPeer {
+export default class ClientPeer extends RTCPeerConnection {
 	static #Init = {
 		iceServers: [
 			{ urls: "stun:stun.l.google.com:19302" }
