@@ -95,10 +95,15 @@ async function gh(method, path, body) {
 
 	if (response.status === 401) logOut();
 
-	const json = await response.json();
+	let json;
+	try {
+		json = await response.json();
+	} catch {
+		json = null;
+	};
 
 	if (!response.ok) {
-		throw new Error(`Got HTTP status code ${response.status}${json.message ? `, error message: ${json.message}` : ""}`);
+		throw new Error(`Got HTTP status code ${response.status}${json?.message ? `, error message: ${json.message}` : ""}`);
 	}
 
 	const etag = response.headers.get("ETag");
