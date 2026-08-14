@@ -133,6 +133,7 @@ function goToLogInScreen() {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
+// checks api?
 async function refreshStatuses() {
 	let runs;
 	try {
@@ -146,7 +147,6 @@ async function refreshStatuses() {
 
 	const activeIds = new Set(runs.map((run) => run.id));
 
-	// drop rows for runs that are no longer in_progress
 	for (const [id, row] of rows) {
 		if (!activeIds.has(id)) {
 			row.remove();
@@ -154,14 +154,27 @@ async function refreshStatuses() {
 		}
 	}
 
-	await Promise.all(runs.map(async (run) => {
+	// multiple in-progress runs often share the same head_sha (no new commits
+	// between dispatches) — group by sha so each commit is only fetched once
+	const runsBySha = new Map();
+	for (const run of runs) {
+		if (!runsBySha.has(run.head_sha)) runsBySha.set(run.head_sha, []);
+		runsBySha.get(run.head_sha).push(run);
+	}
+
+	await Promise.all([...runsBySha].map(async ([sha, runsForSha]) => {
 		let statuses;
 		try {
-			({ statuses } = await gh("GET", `${repoEndpoint}/commits/${run.head_sha}/status`));
+			({ statuses } = await gh("GET", `${repoEndpoint}/commits/${sha}/status`));
 		} catch {
 			return;
 		}
-		if (statuses[0]) renderStatus(run, statuses[0]);
+
+		for (const run of runsForSha) {
+			// backend posts each run's status with context = that run's own id
+			const status = statuses.find((s) => s.context === String(run.id));
+			if (status) renderStatus(run, status);
+		}
 	}));
 }
 
