@@ -1,5 +1,10 @@
 import codeMap from "./code-map.json" with { type: "json" };
 
+const sharedBytes = new Uint8Array(13);
+const sharedView = new DataView(sharedBytes.buffer);
+const screenshare = document.getElementById("screenshare");
+const mainContainer = document.getElementById("main-container");
+
 let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, screenResizeChannel, pointerScrollChannel;
 export default class ClientPeer extends RTCPeerConnection {
 	static #Init = {
@@ -7,11 +12,6 @@ export default class ClientPeer extends RTCPeerConnection {
 			{ urls: "stun:stun.l.google.com:19302" }
 		]
 	};
-
-	static #Screenshare = document.getElementById("screenshare");
-	static #MainContainer = document.getElementById("main-container");
-	static #SharedBytes = new Uint8Array(13);
-	static #SharedView = new DataView(sharedBytes.buffer);
 
 	signalingWs;
 
@@ -23,7 +23,7 @@ export default class ClientPeer extends RTCPeerConnection {
 			this.signalingWs.send(localStorage.getItem("access_token")); // raw, matches server's ws.once('message', ...) handshake
 		});
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
-        this.signalingWs.once("close", () => clearInterval(pingInterval));
+        this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
@@ -80,6 +80,7 @@ export default class ClientPeer extends RTCPeerConnection {
 			case "failed": {
 				window.alert("Connection to the remote desktop failed, retrying connection...");
 				this.restartIce();
+				break;
 			};
 
 			case "disconnected": {
@@ -95,7 +96,8 @@ export default class ClientPeer extends RTCPeerConnection {
 			};
 
 			default: {
-				console.warn(`Unknown connection state: ${this.connectionState}`)
+				console.warn(`Unknown connection state: ${this.connectionState}`);
+				break;
 			}
 		}
 	}
@@ -104,7 +106,7 @@ export default class ClientPeer extends RTCPeerConnection {
 		if (event.candidate) this.#sendWSMessage("ice-candidate", event.candidate);
 	}
 
-	#onTrickleICEMessage(event) {
+	async #onTrickleICEMessage(event) {
 		let data;
 		try { data = JSON.parse(event.data); } catch { return; }
 
@@ -138,27 +140,13 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	static #OnTrack(event) {
-		this.#Screenshare.srcObject = event.streams[0];
-		this.#Screenshare.play().catch(console.warn);
-	}
-
-	static #TriggerImmersiveMode() {	
-		if (document.fullscreenEnabled && !document.fullscreenElement) {
-			document.body.requestFullscreen({ // target, await
-				"navigationUI": "hide"
-			}).then(() => navigator.keyboard?.lock()).catch(() => {});
-		};
-
-		if (!document.pointerLockElement) {
-			document.body.requestPointerLock({ // target, await
-				"unadjustedMovement": true
-			}).catch(() => {});
-		}
+		screenshare.srcObject = event.streams[0];
+		screenshare.play().catch(console.warn);
 	}
 
 	static #SetRemoteControlMode(isInRemoteControlMode) {
-		this.#MainContainer.hidden = isInRemoteControlMode;
-		this.#Screenshare.hidden = !isInRemoteControlMode;
+		mainContainer.hidden = isInRemoteControlMode;
+		screenshare.hidden = !isInRemoteControlMode;
 	}
 }
 
@@ -173,8 +161,8 @@ window.addEventListener("resize", onResize); // ResizeObserver
 window.addEventListener("wheel", onScroll);
 
 function onPointerMove(event) {
-	event.preventDefault();
 	if (pointerMovementChannel?.readyState !== "open") return;
+	event.preventDefault();
 
 	sharedView.setUint8(0, document.pointerLockElement ? 1 : 0);
 	if (document.pointerLockElement) {
@@ -205,8 +193,9 @@ function onKeyDown(event) {
 }
 
 function onPointerButtonEvent(isDown, event) {
-	event.preventDefault();
 	if (pointerClickChannel?.readyState !== "open") return;
+	event.preventDefault();
+
 	if (isDown) triggerImmersiveMode();
 
 	sharedView.setUint8(0, isDown ? 1 : 0); // isDown
@@ -215,8 +204,9 @@ function onPointerButtonEvent(isDown, event) {
 }
 
 function onKeyButtonEvent(isDown, event) {
-	event.preventDefault();
 	if (keyboardTypeChannel?.readyState !== "open" || event.repeat) return;
+	event.preventDefault();
+
 	if (isDown) triggerImmersiveMode();
 
 	if (!(event.code in codeMap)) {
@@ -240,12 +230,26 @@ function onResize(event /* unused */) {
 }
 
 function onScroll(event) {
-	event.preventDefault();
 	if (pointerScrollChannel?.readyState !== "open") return;
+	event.preventDefault();
 
 	sharedView.setUint8(0, event.deltaMode);
 	sharedView.setFloat32(1, event.deltaX, true);
 	sharedView.setFloat32(5, event.deltaY, true);
 	sharedView.setFloat32(9, event.deltaZ, true); // unsupported in pynput
 	pointerScrollChannel.send(sharedBytes.subarray(0, 13));
+}
+
+function triggerImmersiveMode() {	
+	if (document.fullscreenEnabled && !document.fullscreenElement) {
+		document.body.requestFullscreen({ // target, await
+			"navigationUI": "hide"
+		}).then(() => navigator.keyboard?.lock()).catch(() => {});
+	};
+
+	if (!document.pointerLockElement) {
+		document.body.requestPointerLock({ // target, await
+			"unadjustedMovement": true
+		}).catch(() => {});
+	}
 }
