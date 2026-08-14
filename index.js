@@ -11,7 +11,7 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
-import { Octokit } from "https://esm.sh/@octokit/rest@21?bundle";
+import { Octokit } from "https://esm.sh/@octokit/rest?bundle";
 import { createCallbackAuth } from "https://esm.sh/@octokit/auth-callback?bundle";
 import ClientPeer from "./ClientPeer.js";
 
