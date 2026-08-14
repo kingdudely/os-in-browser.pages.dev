@@ -21,9 +21,9 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl);
 		this.signalingWs.addEventListener("open", () => {
 			this.signalingWs.send(localStorage.getItem("access_token")); // raw, matches server's ws.once('message', ...) handshake
+			const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
+			this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 		});
-		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
-        this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
