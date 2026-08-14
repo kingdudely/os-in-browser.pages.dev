@@ -1,3 +1,5 @@
+// Mobile support: tap start is absolute position, then moving is relative - add clipboard support - fix screen resize
+
 // Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 window.addEventListener("error", (event) => {
 	const errorMessage = event.message || "Unknown error occurred";
@@ -9,6 +11,10 @@ window.addEventListener("unhandledrejection", (event) => {
     window.alert(`Async error:\n${asyncErrorMessage}`);
 });
 
+import { Octokit } from "https://esm.sh/@octokit/rest@21?bundle";
+import { createCallbackAuth } from "https://esm.sh/@octokit/auth-callback?bundle";
+import ClientPeer from "./ClientPeer.js";
+
 // Log in handling
 const code = new URLSearchParams(location.search).get("code");
 if (code) {
@@ -17,21 +23,19 @@ if (code) {
 	// return
 }
 
-const etagCache = new Map(); // path -> { etag, data }
+let octokit;
 let username;
 try {
-	username = (await gh("GET", "/user")).login;
+	octokit = makeOctokit();
+	({ data: { login: username } } = await octokit.rest.users.getAuthenticated());
 	document.body.hidden = false;
 } catch {
 	goToLogInScreen();
 }
 // --
 
-import createClientPeer from "./createClientPeer.js";
-
 const TEMPLATE_OWNER = "kingdudely";
 const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
-const repoEndpoint = `/repos/${username}/${TEMPLATE_REPO}`;
 
 const rows = new Map();
 const runnerList = document.getElementById("runner-list");
@@ -57,59 +61,63 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const os = formData.get("os");
 
 	try {
-		await gh("GET", repoEndpoint);
+		await octokit.rest.repos.get({ owner: username, repo: TEMPLATE_REPO });
 	} catch {
-		await gh("POST", `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`, {
-			"owner": username,
-			"name": TEMPLATE_REPO,
-			"include_all_branches": false,
-			"private": false
+		await octokit.rest.repos.createUsingTemplate({
+			template_owner: TEMPLATE_OWNER,
+			template_repo: TEMPLATE_REPO,
+			owner: username,
+			name: TEMPLATE_REPO,
+			include_all_branches: false,
+			private: false
 		});
 	}
 
-	const branch = (await gh("GET", repoEndpoint)).default_branch;
-	await gh("POST", `${repoEndpoint}/actions/workflows/main.yml/dispatches`, {
-		"ref": branch,
-		"inputs": {
-			"os": os
-		}
+	const { data: { default_branch: branch } } = await octokit.rest.repos.get({ owner: username, repo: TEMPLATE_REPO });
+	await octokit.rest.actions.createWorkflowDispatch({
+		owner: username,
+		repo: TEMPLATE_REPO,
+		workflow_id: "main.yml",
+		ref: branch,
+		inputs: { os }
 	});
 });
 
-async function gh(method, path, body) {
-	const cached = etagCache.get(path);
-	const headers = {
-		"Authorization": `Bearer ${localStorage.getItem("access_token")}`,
-		"Accept": "application/vnd.github+json",
-		"Content-Type": "application/json",
-	};
-	if (method === "GET" && cached) headers["If-None-Match"] = cached.etag;
-
-	const response = await fetch(`https://api.github.com${path}`, {
-		"method": method,
-		"headers": headers,
-		"body": body !== undefined ? JSON.stringify(body) : undefined
+function makeOctokit() {
+	const client = new Octokit({
+		authStrategy: createCallbackAuth,
+		auth: {
+			callback: () => localStorage.getItem("access_token"),
+		},
 	});
 
-	if (response.status === 304) return cached.data;
+	const etagCache = new Map();
+	const dataCache = new Map();
 
-	if (response.status === 401) logOut();
+	client.hook.before("request", (options) => {
+		if ((options.method || "GET").toUpperCase() !== "GET") return;
+		const { url } = client.request.endpoint(options);
+		const etag = etagCache.get(url);
+		if (etag) options.headers["if-none-match"] = etag;
+	});
 
-	let json;
-	try {
-		json = await response.json();
-	} catch {
-		json = null;
-	};
+	client.hook.after("request", (response, options) => {
+		if ((options.method || "GET").toUpperCase() !== "GET") return;
+		const { url } = client.request.endpoint(options);
+		if (response.headers?.etag) {
+			etagCache.set(url, response.headers.etag);
+			dataCache.set(url, response);
+		}
+	});
 
-	if (!response.ok) {
-		throw new Error(`Got HTTP status code ${response.status}${json?.message ? `, error message: ${json.message}` : ""}`);
-	}
+	client.hook.error("request", (error, options) => {
+		const { url } = client.request.endpoint(options);
+		if (error.status === 304 && dataCache.has(url)) return dataCache.get(url);
+		if (error.status === 401) logOut();
+		throw error;
+	});
 
-	const etag = response.headers.get("ETag");
-	if (method === "GET" && etag) etagCache.set(path, { etag, data: json });
-
-	return json;
+	return client;
 }
 
 async function setAccessToken(code) {
@@ -142,10 +150,12 @@ function goToLogInScreen() {
 async function refreshStatuses() {
 	let runs;
 	try {
-		({ workflow_runs: runs } = await gh(
-			"GET",
-			`${repoEndpoint}/actions/runs?status=in_progress&per_page=100`
-		));
+		({ data: { workflow_runs: runs } } = await octokit.rest.actions.listWorkflowRunsForRepo({
+			owner: username,
+			repo: TEMPLATE_REPO,
+			status: "in_progress",
+			per_page: 100
+		}));
 	} catch {
 		return;
 	}
@@ -170,7 +180,11 @@ async function refreshStatuses() {
 	await Promise.all([...runsBySha].map(async ([sha, runsForSha]) => {
 		let statuses;
 		try {
-			({ statuses } = await gh("GET", `${repoEndpoint}/commits/${sha}/status`));
+			({ data: { statuses } } = await octokit.rest.repos.getCombinedStatusForRef({
+				owner: username,
+				repo: TEMPLATE_REPO,
+				ref: sha
+			}));
 		} catch {
 			return;
 		}
@@ -200,5 +214,5 @@ function renderStatus(run, status) {
 function connect(row) {
 	const wsUrl = new URL(row._status.target_url);
 	wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
-	createClientPeer(wsUrl.toString());
+	new ClientPeer(wsUrl.toString());
 }
