@@ -22,20 +22,20 @@ export default class ClientPeer {
 		});
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
-		this.addEventListener("connectionstatechange", this.#OnConnectionStateChange.bind(this));
-		this.addEventListener("icecandidate", this.#OnICECandidate.bind(this));
+		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
+		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
 		this.addTransceiver("video", {
 			direction: "recvonly"
 		});
 
-		this.#InitializeDataChannels();
-		this.signalingWs.addEventListener("message", this.#OnTrickleICEMessage.bind(this));
+		this.#initializeDataChannels();
+		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 
 		ClientPeer.#SetRemoteControlMode(true);
 	}
 
-	#InitializeDataChannels() {
+	#initializeDataChannels() {
 		pointerMovementChannel = this.createDataChannel("pointer-movement", {
 			ordered: false,
 			maxRetransmits: 0,
@@ -71,7 +71,7 @@ export default class ClientPeer {
 		screenResizeChannel.addEventListener("open", onResize); // So it automatically resizes in the beginning 
 	}
 
-	#OnConnectionStateChange() {
+	#onConnectionStateChange() {
 		switch (this.connectionState) {
 			case "failed": {
 				window.alert("Connection to the remote desktop failed, retrying connection...");
@@ -95,11 +95,11 @@ export default class ClientPeer {
 		}
 	}
 
-	#OnICECandidate(event) {
-		if (event.candidate) this.#SendWSMessage("ice-candidate", event.candidate);
+	#onICECandidate(event) {
+		if (event.candidate) this.#sendWSMessage("ice-candidate", event.candidate);
 	}
 
-	#OnTrickleICEMessage(event) {
+	#onTrickleICEMessage(event) {
 		let data;
 		try { data = JSON.parse(event.data); } catch { return; }
 
@@ -109,7 +109,7 @@ export default class ClientPeer {
 					await this.setRemoteDescription(data.message);
 					const answer = await this.createAnswer();
 					await this.setLocalDescription(answer);
-					this.#SendWSMessage("answer", this.localDescription);
+					this.#sendWSMessage("answer", this.localDescription);
 				} catch (err) {
 					console.error("Failed to handle offer:", err);
 				}
@@ -121,7 +121,7 @@ export default class ClientPeer {
 		}
 	}
 
-	#SendWSMessage(type, message) {
+	#sendWSMessage(type, message) {
 		if (this.signalingWs.readyState === WebSocket.OPEN) {
 			this.signalingWs.send(JSON.stringify({ type, message }));
 		}
