@@ -133,7 +133,7 @@ function goToLogInScreen() {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
-// checks api?
+// checks api? maybe use tunnel for ice trickle
 async function refreshStatuses() {
 	let runs;
 	try {
