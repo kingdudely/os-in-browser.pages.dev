@@ -22,6 +22,8 @@ export default class ClientPeer {
 		this.signalingWs.addEventListener("open", () => {
 			this.signalingWs.send(localStorage.getItem("access_token")); // raw, matches server's ws.once('message', ...) handshake
 		});
+		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
+        this.signalingWs.once("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
@@ -87,6 +89,7 @@ export default class ClientPeer {
 
 			case "closed": {
 				window.alert("Remote desktop connection was closed.");
+				this.signalingWs.close();
 				ClientPeer.#SetRemoteControlMode(false);
 				break;
 			};
@@ -106,20 +109,25 @@ export default class ClientPeer {
 		try { data = JSON.parse(event.data); } catch { return; }
 
 		switch (data.type) {
-			case "offer":
-				try {
-					await this.setRemoteDescription(data.message);
-					const answer = await this.createAnswer();
-					await this.setLocalDescription(answer);
-					this.#sendWSMessage("answer", this.localDescription);
-				} catch (err) {
-					console.error("Failed to handle offer:", err);
-				}
+			case "offer": {
+				await this.setRemoteDescription(data.message);
+				const answer = await this.createAnswer();
+				await this.setLocalDescription(answer);
+				this.#sendWSMessage("answer", this.localDescription);
 				break;
-			case "ice-candidate":
-				try { await this.addIceCandidate(data.message); }
-				catch (err) { console.error("Failed to add ICE candidate:", err); }
+			}
+
+			case "ice-candidate": {
+				await this.addIceCandidate(data.message);
 				break;
+			}
+
+			case "ping": break;
+
+			default: {
+				console.warn(`Unknown packet type: ${data.type}`);
+				break;
+			}
 		}
 	}
 
