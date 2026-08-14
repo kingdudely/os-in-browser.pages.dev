@@ -13,6 +13,8 @@ export default class ClientPeer {
 	static #SharedBytes = new Uint8Array(13);
 	static #SharedView = new DataView(sharedBytes.buffer);
 
+	signalingWs;
+
 	constructor (signalingUrl) {
 		// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 		super(ClientPeer.#Init);
