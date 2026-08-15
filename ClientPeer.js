@@ -4,8 +4,8 @@ const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
 const screenshare = document.getElementById("screenshare");
 const mainContainer = document.getElementById("main-container");
-
 let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, screenResizeChannel, pointerScrollChannel;
+
 export default class ClientPeer extends RTCPeerConnection {
 	static #Init = {
 		iceServers: [
