@@ -4,7 +4,7 @@ const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
 const screenshare = document.getElementById("screenshare");
 const mainContainer = document.getElementById("main-container");
-let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, screenResizeChannel, pointerScrollChannel;
+let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, pointerScrollChannel;
 
 export default class ClientPeer extends RTCPeerConnection {
 	static #Init = {
@@ -53,26 +53,18 @@ export default class ClientPeer extends RTCPeerConnection {
 			id: 1
 		});
 
-		keyboardTypeChannel = this.createDataChannel("keyboard-type", {
-			ordered: true,
-			negotiated: true,
-			id: 2
-		});
-
-		screenResizeChannel = this.createDataChannel("screen-resize", {
-			ordered: false,
-			negotiated: true,
-			id: 3
-		});
-
 		pointerScrollChannel = this.createDataChannel("pointer-scroll", {
 			ordered: false,
 			maxRetransmits: 0,
 			negotiated: true,
-			id: 4
+			id: 2
 		});
 
-		screenResizeChannel.addEventListener("open", onResize); // So it automatically resizes in the beginning 
+		keyboardTypeChannel = this.createDataChannel("keyboard-type", {
+			ordered: true,
+			negotiated: true,
+			id: 3
+		});
 	}
 
 	#onConnectionStateChange() {
@@ -157,7 +149,6 @@ window.addEventListener("pointerup", onPointerUp);
 window.addEventListener("keydown", onKeyDown); // Could do tabindex=0 but then they can just press tab again - also, this is more reliable, and screenshare is basically the whole screen anyways.
 window.addEventListener("keyup", onKeyUp);
 
-window.addEventListener("resize", onResize); // ResizeObserver 
 window.addEventListener("wheel", onScroll);
 
 function onPointerMove(event) {
@@ -218,15 +209,6 @@ function onKeyButtonEvent(isDown, event) {
 	sharedView.setUint8(1, codeMap[event.code]);
 
 	keyboardTypeChannel.send(sharedBytes.subarray(0, 2));
-}
-
-function onResize(event /* unused */) {
-	if (screenResizeChannel?.readyState !== "open") return;
-	console.log("Sending screen resize packet...");
-
-	sharedView.setUint32(0, window.innerWidth, true);
-	sharedView.setUint32(4, window.innerHeight, true);
-	screenResizeChannel.send(sharedBytes.subarray(0, 8));
 }
 
 function onScroll(event) {
