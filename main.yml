@@ -20,10 +20,6 @@ on:
         description: 'Password'
         type: string
         required: true
-      username:
-        description: 'Username'
-        type: string
-        required: true
 
 jobs:
   remote:
@@ -87,18 +83,18 @@ jobs:
       - name: Start server
         background: true
         run: |
-          npx remote-desktop --port="${PORT}" --username=${{ inputs.username }} --password=${{ inputs.password }}
+          npx remote-desktop --port="${PORT}" --password=${{ inputs.password }}
 
       - name: Install cloudflared
         id: tunnel
         run: |
-          cloudflared tunnel --metrics "127.0.0.1:${METRICS_PORT}" --url "http://localhost:${PORT}" &
+          cloudflared tunnel --metrics "localhost:${METRICS_PORT}" --url "http://localhost:${PORT}" &
 
-          until cloudflared tunnel --metrics "127.0.0.1:${METRICS_PORT}" ready; do
+          until cloudflared tunnel --metrics "localhost:${METRICS_PORT}" ready; do
             sleep 0.5
           done
 
-          TUNNEL_URL=$(curl -s http://127.0.0.1:${METRICS_PORT}/quicktunnel | jq -r '.hostname')
+          TUNNEL_URL=$(curl -s http://localhost:${METRICS_PORT}/quicktunnel | jq -r '.hostname')
           touch "${TUNNEL_URL}"
           echo "url=${TUNNEL_URL}" >> "${GITHUB_OUTPUT}"
 

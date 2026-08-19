@@ -146,73 +146,34 @@ function goToLogInScreen() {
 	location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
 }
 
-// checks api? maybe use tunnel for ice trickle
 async function refreshStatuses() {
 	let runs;
 	try {
-		({ data: { workflow_runs: runs } } = await octokit.rest.actions.listWorkflowRunsForRepo({
+		runs = (await octokit.rest.actions.listWorkflowRunsForRepo({
 			owner: username,
 			repo: TEMPLATE_REPO,
 			status: "in_progress",
-			per_page: 100
-		}));
+			per_page: 20
+		})).data.workflow_runs;
 	} catch {
 		return;
 	}
 
-	const activeIds = new Set(runs.map((run) => run.id));
+	runnerList.replaceChildren();
 
-	for (const [id, row] of rows) {
-		if (!activeIds.has(id)) {
-			row.remove();
-			rows.delete(id);
-		}
-	}
-
-	// multiple in-progress runs often share the same head_sha (no new commits
-	// between dispatches) — group by sha so each commit is only fetched once
-	const runsBySha = new Map();
-	for (const run of runs) {
-		if (!runsBySha.has(run.head_sha)) runsBySha.set(run.head_sha, []);
-		runsBySha.get(run.head_sha).push(run);
-	}
-
-	await Promise.all([...runsBySha].map(async ([sha, runsForSha]) => {
-		let statuses;
+	await Promise.all(runs.map(async (run) => {
+		let tunnelUrl;
 		try {
-			({ data: { statuses } } = await octokit.rest.repos.getCombinedStatusForRef({
-				owner: username,
-				repo: TEMPLATE_REPO,
-				ref: sha
-			}));
+			tunnelUrl = (await octokit.request(run.artifacts_url)).data.artifacts[0]?.name;
 		} catch {
 			return;
 		}
+		if (!tunnelUrl) return;
 
-		for (const run of runsForSha) {
-			// backend posts each run's status with context = that run's own id
-			const status = statuses.find((s) => s.context === String(run.id));
-			if (status) renderStatus(run, status);
-		}
-	}));
-}
-
-function renderStatus(run, status) {
-	let row = rows.get(run.id);
-	if (!row) {
-		row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
-		row.querySelector(".connect-button").addEventListener("click", () => connect(row));
-		rows.set(run.id, row);
+		const row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
+		row.querySelector(".connect-button").addEventListener("click", () => new ClientPeer(`wss://${tunnelUrl}`));
+		row.querySelector(".created-at").textContent = new Date(run.created_at).toLocaleString();
+		row.querySelector(".os").textContent = run.name || "unknown";
 		runnerList.appendChild(row);
-	}
-
-	row._status = status;
-	row.querySelector(".created-at").textContent = new Date(status.created_at).toLocaleString();
-	row.querySelector(".os").textContent = status.description || "unknown";
-}
-
-function connect(row) {
-	const wsUrl = new URL(row._status.target_url);
-	wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
-	new ClientPeer(wsUrl.toString());
+	}));
 }
