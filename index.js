@@ -86,6 +86,8 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 		"ref": branch,
 		"inputs": { "os": os }
 	});
+
+	optionalRockPaperScissors();
 });
 
 function makeOctokit() {
@@ -201,4 +203,42 @@ async function newRunEntry(run) {
 	row.querySelector(".created-at").textContent = new Date(run.created_at).toLocaleString();
 	row.querySelector(".os").textContent = osName || "unknown";
 	return row;
+}
+
+function optionalRockPaperScissors() {
+	if (!confirm("Your OS is starting, it might take some time to boot. Want to play rock paper scissors while you wait?")) return;
+
+	const choices = ["rock", "paper", "scissors"];
+	const beats = {
+		"rock": "scissors",
+		"paper": "rock",
+		"scissors": "paper"
+	};
+	let wins = 0, losses = 0, ties = 0;
+
+	while (true) {
+		const input = prompt(`Rock, paper, or scissors? (${wins}W-${losses}L-${ties}T)\nType "rock", "paper", or "scissors". Cancel to stop.`);
+		if (input === null) break; // user hit cancel
+
+		const playerChoice = input.trim().toLowerCase();
+		if (!choices.includes(playerChoice)) {
+			alert(`"${playerChoice}" isn't a valid move. Try again.`);
+			continue;
+		}
+
+		const computerChoice = choices[Math.floor(Math.random() * 3)].trim().toLowerCase();
+		let result;
+		if (playerChoice === computerChoice) {
+			result = "Tie!";
+			ties++;
+		} else if (beats[playerChoice] === computerChoice) {
+			result = "You win!";
+			wins++;
+		} else {
+			result = "You lose!";
+			losses++;
+		}
+
+		alert(`You: ${playerChoice}\nComputer: ${computerChoice}\n${result}`);
+	}
 }
