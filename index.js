@@ -24,10 +24,10 @@ if (code) {
 }
 
 let octokit;
-let username;
+let owner;
 try {
 	octokit = makeOctokit();
-	({ data: { login: username } } = await octokit.rest.users.getAuthenticated());
+	owner = (await octokit.rest.users.getAuthenticated()).data.login;
 	document.body.hidden = false;
 } catch {
 	goToLogInScreen();
@@ -50,7 +50,7 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
-document.getElementById("account-name").textContent = username;
+document.getElementById("account-name").textContent = owner;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
 document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
@@ -60,23 +60,27 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
 
+	const repo = localStorage.getItem("runner_repo") || crypto.randomUUID();
+	let branch;
+
 	try {
-		await octokit.rest.repos.get({ owner: username, repo: TEMPLATE_REPO });
+		branch = (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
 	} catch {
-		await octokit.rest.repos.createUsingTemplate({
+		branch = (await octokit.rest.repos.createUsingTemplate({
 			template_owner: TEMPLATE_OWNER,
 			template_repo: TEMPLATE_REPO,
-			owner: username,
-			name: TEMPLATE_REPO,
+			owner,
+			name: repo,
 			include_all_branches: false,
 			private: false
-		});
+		})).data.default_branch;
+
+		localStorage.setItem("runner_repo", repo);
 	}
 
-	const { data: { default_branch: branch } } = await octokit.rest.repos.get({ owner: username, repo: TEMPLATE_REPO });
 	await octokit.rest.actions.createWorkflowDispatch({
-		owner: username,
-		repo: TEMPLATE_REPO,
+		owner,
+		repo,
 		workflow_id: "main.yml",
 		ref: branch,
 		inputs: { os }
@@ -147,19 +151,22 @@ function goToLogInScreen() {
 }
 
 async function refreshStatuses() {
+	runnerList.replaceChildren();
+
+	const repo = localStorage.getItem("runner_repo");
+	if (!repo) return;
+
 	let runs;
 	try {
 		runs = (await octokit.rest.actions.listWorkflowRunsForRepo({
-			owner: username,
-			repo: TEMPLATE_REPO,
+			owner,
+			repo,
 			status: "in_progress",
 			per_page: 20
 		})).data.workflow_runs;
 	} catch {
 		return;
 	}
-
-	runnerList.replaceChildren();
 
 	await Promise.all(runs.map(async (run) => {
 		let tunnelUrl;
