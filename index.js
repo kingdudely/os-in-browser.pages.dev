@@ -24,10 +24,10 @@ if (code) {
 }
 
 let octokit;
-let owner;
+let username;
 try {
 	octokit = makeOctokit();
-	owner = (await octokit.rest.users.getAuthenticated()).data.login;
+	username = (await octokit.rest.users.getAuthenticated()).data.login;
 	document.body.hidden = false;
 } catch {
 	goToLogInScreen();
@@ -50,7 +50,7 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
-document.getElementById("account-name").textContent = owner;
+document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
 // maybe const repo = localStorage.getItem("runner_repo") || crypto.randomUUID()?
@@ -65,14 +65,14 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 
 	try {
 		branch = (await octokit.rest.repos.get({
-			"owner": owner,
+			"owner": username,
 			"repo": TEMPLATE_REPO
 		})).data.default_branch;
 	} catch {
 		branch = (await octokit.rest.repos.createUsingTemplate({
 			"template_owner": TEMPLATE_OWNER,
 			"template_repo": TEMPLATE_REPO,
-			"owner": owner,
+			"owner": username,
 			"name": TEMPLATE_REPO,
 			"include_all_branches": false,
 			"private": false
@@ -80,7 +80,7 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	}
 
 	await octokit.rest.actions.createWorkflowDispatch({
-		"owner": owner,
+		"owner": username,
 		"repo": TEMPLATE_REPO,
 		"workflow_id": "main.yml",
 		"ref": branch,
@@ -157,10 +157,10 @@ async function refreshStatuses() {
 	let runs;
 	try {
 		runs = (await octokit.rest.actions.listWorkflowRunsForRepo({
-			owner,
-			repo,
-			status: "in_progress",
-			per_page: 20
+			"owner": username,
+			"repo": TEMPLATE_REPO,
+			"status": "in_progress",
+			"per_page": 20
 		})).data.workflow_runs;
 	} catch {
 		return;
