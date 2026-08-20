@@ -154,9 +154,6 @@ function goToLogInScreen() {
 async function refreshStatuses() {
 	runnerList.replaceChildren();
 
-	const repo = localStorage.getItem("runner_repo");
-	if (!repo) return;
-
 	let runs;
 	try {
 		runs = (await octokit.rest.actions.listWorkflowRunsForRepo({
