@@ -168,17 +168,25 @@ async function refreshStatuses() {
 
 	await Promise.all(runs.map(async (run) => {
 		let tunnelUrl;
+		let osName;
 		try {
-			tunnelUrl = (await octokit.request(run.artifacts_url)).data.artifacts[0]?.name;
+			const [artifactsResult, jobsResult] = await Promise.allSettled([
+				octokit.request(run.artifacts_url),
+				octokit.request(run.jobs_url)
+			]);
+
+			if (artifactsResult.status === "fulfilled") tunnelUrl = artifactsResult.value.data.artifacts[0]?.name;
+			if (jobsResult.status === "fulfilled") osName = jobsResult.value.data.jobs[0]?.labels[0];
 		} catch {
 			return;
-		}
+		};
+
 		if (!tunnelUrl) return;
 
 		const row = runnerListEntryTemplate.content.firstElementChild.cloneNode(true);
 		row.querySelector(".connect-button").addEventListener("click", () => new ClientPeer(`wss://${tunnelUrl}`));
 		row.querySelector(".created-at").textContent = new Date(run.created_at).toLocaleString();
-		row.querySelector(".os").textContent = run.name || "unknown";
+		row.querySelector(".os").textContent = osName || "unknown";
 		runnerList.appendChild(row);
 	}));
 }
