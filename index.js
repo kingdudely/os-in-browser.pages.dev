@@ -152,8 +152,6 @@ function goToLogInScreen() {
 }
 
 async function refreshStatuses() {
-	runnerList.replaceChildren();
-
 	let runs;
 	try {
 		runs = (await octokit.rest.actions.listWorkflowRunsForRepo({
@@ -166,7 +164,24 @@ async function refreshStatuses() {
 		return;
 	}
 
-	await Promise.all(runs.map(newRunEntry));
+	const seenIds = new Set(runs.map(r => r.id));
+
+	for (const run of runs) {
+		if (rows.has(run.id)) continue;
+		rows.set(run.id, null); // claim it immediately, synchronously
+		newRunEntry(run).then((row) => {
+			if (!row) { rows.delete(run.id); return; }
+			rows.set(run.id, row);
+			runnerList.appendChild(row);
+		});
+	}
+
+	for (const [id, row] of rows) {
+		if (!seenIds.has(id) && row) {
+			row.remove();
+			rows.delete(id);
+		}
+	}
 }
 
 async function newRunEntry(run) {
@@ -185,5 +200,5 @@ async function newRunEntry(run) {
 	row.querySelector(".connect-button").addEventListener("click", () => new ClientPeer(`wss://${tunnelUrl}`));
 	row.querySelector(".created-at").textContent = new Date(run.created_at).toLocaleString();
 	row.querySelector(".os").textContent = osName || "unknown";
-	runnerList.appendChild(row);
+	return row;
 }
