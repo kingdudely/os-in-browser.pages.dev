@@ -18,12 +18,9 @@ export default class ClientPeer extends RTCPeerConnection {
 	constructor (signalingUrl) {
 		// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 		super(ClientPeer.#Init);
-		this.signalingWs = new WebSocket(signalingUrl);
-		this.signalingWs.addEventListener("open", () => {
-			this.signalingWs.send(localStorage.getItem("access_token")); // raw, matches server's ws.once('message', ...) handshake
-			const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
-			this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
-		});
+		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
+		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
+		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
