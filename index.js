@@ -79,14 +79,7 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 		})).data.default_branch;
 	}
 
-	await octokit.rest.actions.createWorkflowDispatch({
-		"owner": username,
-		"repo": TEMPLATE_REPO,
-		"workflow_id": "main.yml",
-		"ref": branch,
-		"inputs": { "os": os }
-	});
-
+	await dispatchWithRetry(branch, os);
 	optionalRockPaperScissors();
 });
 
@@ -205,6 +198,33 @@ async function newRunEntry(run) {
 	return row;
 }
 
+async function dispatchWithRetry(branch, os) {
+	const warnTimer = setTimeout(() => window.alert("This is taking a lot longer than usual to start..."), 15000);
+
+	while (true) {
+		try {
+			await octokit.rest.actions.createWorkflowDispatch({
+				"owner": username,
+				"repo": TEMPLATE_REPO,
+				"workflow_id": "main.yml",
+				"ref": branch,
+				"inputs": { "os": os }
+			});
+
+			clearTimeout(warnTimer);
+
+			break;
+		} catch (error) {
+			if (error.status !== 404) {
+				clearTimeout(warnTimer);
+				throw error;
+			}
+
+			await sleep(1000);
+		}
+	}
+}
+
 function optionalRockPaperScissors() {
 	if (!confirm("Your OS is starting, it might take some time to boot. Want to play rock paper scissors while you wait?")) return;
 
@@ -241,4 +261,8 @@ function optionalRockPaperScissors() {
 
 		alert(`You: ${playerChoice}\nComputer: ${computerChoice}\n${result}`);
 	}
+}
+
+function sleep(milliseconds) {
+	return new Promise((resolve) => setTimeout(resolve, 1000));
 }
