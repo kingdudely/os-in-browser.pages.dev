@@ -35,7 +35,7 @@ try {
 // --
 
 const TEMPLATE_OWNER = "kingdudely";
-const TEMPLATE_REPO = "os-in-browser.pages.dev-host";
+const TEMPLATE_REPO = "os-in-browser.pages.dev-template";
 
 const rows = new Map();
 const runnerList = document.getElementById("runner-list");
@@ -53,6 +53,7 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById("account-name").textContent = owner;
 document.getElementById("logout-button").addEventListener("click", logOut);
 
+// maybe const repo = localStorage.getItem("runner_repo") || crypto.randomUUID()?
 document.getElementById("start-runner-form").addEventListener("submit", async (event) => {
 	event.preventDefault();
 	// mainDialog.close();
@@ -60,30 +61,30 @@ document.getElementById("start-runner-form").addEventListener("submit", async (e
 	const formData = new FormData(event.target);
 	const os = formData.get("os");
 
-	const repo = localStorage.getItem("runner_repo") || crypto.randomUUID();
 	let branch;
 
 	try {
-		branch = (await octokit.rest.repos.get({ owner, repo })).data.default_branch;
+		branch = (await octokit.rest.repos.get({
+			"owner": owner,
+			"repo": TEMPLATE_REPO
+		})).data.default_branch;
 	} catch {
 		branch = (await octokit.rest.repos.createUsingTemplate({
-			template_owner: TEMPLATE_OWNER,
-			template_repo: TEMPLATE_REPO,
-			owner,
-			name: repo,
-			include_all_branches: false,
-			private: false
+			"template_owner": TEMPLATE_OWNER,
+			"template_repo": TEMPLATE_REPO,
+			"owner": owner,
+			"name": TEMPLATE_REPO,
+			"include_all_branches": false,
+			"private": false
 		})).data.default_branch;
-
-		localStorage.setItem("runner_repo", repo);
 	}
 
 	await octokit.rest.actions.createWorkflowDispatch({
-		owner,
-		repo,
-		workflow_id: "main.yml",
-		ref: branch,
-		inputs: { os }
+		"owner": owner,
+		"repo": TEMPLATE_REPO,
+		"workflow_id": "main.yml",
+		"ref": branch,
+		"inputs": { "os": os }
 	});
 });
 
