@@ -1,5 +1,5 @@
 // Mobile support: tap start is absolute position, then moving is relative - add clipboard support - fix screen resize
-
+// window.addEventListener('paste', navigator.clipboard.addEventListener("clipboardchange"
 // Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
 window.addEventListener("error", (event) => {
 	const errorMessage = event.message || "Unknown error occurred";
