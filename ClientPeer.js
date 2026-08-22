@@ -219,16 +219,21 @@ function onScroll(event) {
 	pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 }
 
-function triggerImmersiveMode() {	
-	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.body.requestFullscreen({ // target, await
-			"navigationUI": "hide"
-		}).then(() => navigator.keyboard?.lock()).catch(() => {});
-	};
-
+// try catch not just catch() because what if the member doesn't exist?
+async function triggerImmersiveMode() {
 	if (!document.pointerLockElement) {
-		document.body.requestPointerLock({ // target, await
-			"unadjustedMovement": true
-		}).catch(() => {});
+		try {
+			await document.body.requestPointerLock({ unadjustedMovement: true });
+		} catch {};
+	}
+
+	if (document.fullscreenEnabled && !document.fullscreenElement) {
+		try {
+			await document.body.requestFullscreen({ navigationUI: "hide", keyboardLock: "browser" });
+		} catch {}
+
+		try {
+			await navigator.keyboard.lock();
+		} catch {}
 	}
 }
