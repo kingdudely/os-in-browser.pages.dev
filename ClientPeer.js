@@ -8,7 +8,7 @@ let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, pointerScr
 let lastClipboardValue;
 
 export default class ClientPeer extends RTCPeerConnection {
-	static Init = {
+	static #Init = {
 		iceServers: [
 			{ urls: "stun:stun.l.google.com:19302" }
 		]
@@ -18,7 +18,7 @@ export default class ClientPeer extends RTCPeerConnection {
 
 	constructor (signalingUrl) {
 		// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
-		super(ClientPeer.Init);
+		super(ClientPeer.#Init);
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
