@@ -4,7 +4,8 @@ const sharedBytes = new Uint8Array(13);
 const sharedView = new DataView(sharedBytes.buffer);
 const screenshare = document.getElementById("screenshare");
 const mainContainer = document.getElementById("main-container");
-let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, pointerScrollChannel;
+let pointerMovementChannel, pointerClickChannel, keyboardTypeChannel, pointerScrollChannel, clipboardSyncChannel;
+let lastClipboardValue;
 
 export default class ClientPeer extends RTCPeerConnection {
 	static Init = {
@@ -62,6 +63,14 @@ export default class ClientPeer extends RTCPeerConnection {
 			negotiated: true,
 			id: 3
 		});
+
+		clipboardSyncChannel = this.createDataChannel("clipboard-sync", {
+            ordered: true,
+            negotiated: true,
+            id: 4
+        });
+
+		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard.writeText(data));
 	}
 
 	#onConnectionStateChange() {
@@ -147,6 +156,13 @@ window.addEventListener("keydown", onKeyDown); // Could do tabindex=0 but then t
 window.addEventListener("keyup", onKeyUp);
 
 window.addEventListener("wheel", onScroll);
+
+if ("onclipboardchange" in navigator.clipboard) {
+	navigator.clipboard.addEventListener("clipboardchange", syncClipboard);
+	window.addEventListener("focus", syncClipboard);
+} else {
+	setInterval(syncClipboard, 134);
+}
 
 function onPointerMove(event) {
 	if (pointerMovementChannel?.readyState !== "open") return;
@@ -235,5 +251,14 @@ async function triggerImmersiveMode() {
 		try {
 			await navigator.keyboard.lock();
 		} catch {}
+	}
+}
+
+async function syncClipboard() {
+	if (clipboardSyncChannel?.readyState !== "open" || !document.hasFocus()) return;
+	const currentClipboardValue = await navigator.clipboard.readText();
+	if (currentClipboardValue !== lastClipboardValue) {
+		lastClipboardValue = currentClipboardValue;
+		clipboardSyncChannel.send(currentClipboardValue);
 	}
 }
