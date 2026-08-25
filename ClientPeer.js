@@ -28,6 +28,7 @@ export default class ClientPeer extends RTCPeerConnection {
 			this.addTransceiver("video", {
 				direction: "recvonly"
 			});
+			this.#initializeDataChannels();
 			console.log("TRANSCEIVER")
 		});
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
@@ -37,8 +38,6 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.addEventListener("negotiationneeded", this.#onNegotiationNeeded.bind(this));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
-
-		this.#initializeDataChannels();
 
 		ClientPeer.#SetRemoteControlMode(true);
 	}
