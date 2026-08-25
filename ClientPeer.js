@@ -23,9 +23,11 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("open", () => {
+			console.log("OPEN")
 			this.addTransceiver("video", {
 				direction: "recvonly"
 			});
+			console.log("TRANSCEIVER")
 		});
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
