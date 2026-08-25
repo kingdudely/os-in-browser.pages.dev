@@ -23,14 +23,22 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
+		this.signalingWs.addEventListener("open", async () => {
+			await this.setLocalDescription();
+			this.#sendWSMessage("offer", this.localDescription);
+		});
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
-		this.addTransceiver("video", {
+		const videoTransceiver = this.addTransceiver("video", {
 			direction: "recvonly"
 		});
+
+		videoTransceiver.setCodecPreferences(
+			videoTransceiver.receiver.getCapabilities("video").codecs
+		);
 
 		this.#initializeDataChannels();
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
@@ -115,12 +123,9 @@ export default class ClientPeer extends RTCPeerConnection {
 		try { data = JSON.parse(event.data); } catch { return; }
 
 		switch (data.type) {
-			case "offer": {
+			case "answer": {
 				await this.setRemoteDescription(data.message);
 				this.#remoteDescriptionReady.resolve();
-
-				await this.setLocalDescription();
-				this.#sendWSMessage("answer", this.localDescription);
 				break;
 			}
 
