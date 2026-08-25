@@ -31,13 +31,9 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
-		const videoTransceiver = this.addTransceiver("video", { // starts negotiation, i think
+		this.addTransceiver("video", { // starts negotiation, i think
 			direction: "recvonly"
 		});
-
-		videoTransceiver.setCodecPreferences(
-			videoTransceiver.receiver.getCapabilities("video").codecs
-		);
 
 		this.#initializeDataChannels();
 
