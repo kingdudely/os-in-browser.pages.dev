@@ -22,6 +22,8 @@ export default class ClientPeer extends RTCPeerConnection {
 		super(ClientPeer.#Init);
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
+		// this.signalingWs.addEventListener("open", this.#onNegotiationNeeded.bind(this));
+		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
@@ -29,7 +31,7 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
-		const videoTransceiver = this.addTransceiver("video", {
+		const videoTransceiver = this.addTransceiver("video", { // starts negotiation, i think
 			direction: "recvonly"
 		});
 
@@ -38,7 +40,6 @@ export default class ClientPeer extends RTCPeerConnection {
 		);
 
 		this.#initializeDataChannels();
-		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 
 		ClientPeer.#SetRemoteControlMode(true);
 	}
@@ -49,26 +50,37 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	#initializeDataChannels() {
+		// maybe remove negotiated, idk
 		pointerMovementChannel = this.createDataChannel("pointer-movement", {
 			ordered: false,
-			maxRetransmits: 0
+			maxRetransmits: 0,
+			negotiated: true,
+			id: 0
 		});
 
 		pointerClickChannel = this.createDataChannel("pointer-click", {
-			ordered: true
+			ordered: true,
+			negotiated: true,
+			id: 1
 		});
 
 		pointerScrollChannel = this.createDataChannel("pointer-scroll", {
 			ordered: false,
-			maxRetransmits: 0
+			maxRetransmits: 0,
+			negotiated: true,
+			id: 2
 		});
 
 		keyboardTypeChannel = this.createDataChannel("keyboard-type", {
-			ordered: true
+			ordered: true,
+			negotiated: true,
+			id: 3
 		});
 
 		clipboardSyncChannel = this.createDataChannel("clipboard-sync", {
-            ordered: true
+            ordered: true,
+            negotiated: true,
+            id: 4
         });
 
 		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard.writeText(data));
