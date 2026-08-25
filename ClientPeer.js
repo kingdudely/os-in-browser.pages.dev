@@ -24,6 +24,7 @@ export default class ClientPeer extends RTCPeerConnection {
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("open", () => {
 			console.log("OPEN")
+			console.log(this.signalingWs.readyState)
 			this.addTransceiver("video", {
 				direction: "recvonly"
 			});
