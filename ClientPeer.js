@@ -23,15 +23,22 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("open", () => {
-			this.addTransceiver("video", {
+			console.log("WS OPEN");
+
+			const transceiver = this.addTransceiver("video", {
 				direction: "recvonly"
 			});
+
+			console.log("TRANSCEIVER ADDED", transceiver);
 		});
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
-		this.addEventListener("negotiationneeded", this.#onNegotiationNeeded.bind(this));
+		this.addEventListener("negotiationneeded", () => {
+			console.log("NEGOTIATION NEEDED", this.signalingState);
+			this.#onNegotiationNeeded();
+		});
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
