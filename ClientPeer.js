@@ -15,6 +15,7 @@ export default class ClientPeer extends RTCPeerConnection {
 	};
 
 	signalingWs = null;
+	#remoteDescriptionReady = Promise.withResolvers();
 
 	constructor (signalingUrl) {
 		// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
@@ -74,10 +75,15 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	#onConnectionStateChange() {
-		switch (this.connectionState) {
+		const { connectionState, signalingWs } = this;
+		switch (connectionState) {
 			case "failed": {
 				window.alert("Connection to the remote desktop failed, retrying connection...");
-				this.restartIce();
+				if (signalingWs.readyState === signalingWs.OPEN) {
+					this.restartIce();
+				} else {
+					this.close();
+				}
 				break;
 			};
 
@@ -88,20 +94,20 @@ export default class ClientPeer extends RTCPeerConnection {
 
 			case "closed": {
 				window.alert("Remote desktop connection was closed.");
-				this.signalingWs.close();
+				signalingWs.close();
 				ClientPeer.#SetRemoteControlMode(false);
 				break;
 			};
 
 			default: {
-				console.warn(`Unknown connection state: ${this.connectionState}`);
+				console.warn(`Unknown connection state: ${connectionState}`);
 				break;
 			}
 		}
 	}
 
-	#onICECandidate(event) {
-		if (event.candidate) this.#sendWSMessage("ice-candidate", event.candidate);
+	#onICECandidate({ candidate }) {
+		if (candidate) this.#sendWSMessage("ice-candidate", candidate);
 	}
 
 	async #onTrickleICEMessage(event) {
@@ -111,13 +117,15 @@ export default class ClientPeer extends RTCPeerConnection {
 		switch (data.type) {
 			case "offer": {
 				await this.setRemoteDescription(data.message);
-				const answer = await this.createAnswer();
-				await this.setLocalDescription(answer);
+				this.#remoteDescriptionReady.resolve();
+
+				await this.setLocalDescription();
 				this.#sendWSMessage("answer", this.localDescription);
 				break;
 			}
 
 			case "ice-candidate": {
+				await this.#remoteDescriptionReady.promise;
 				await this.addIceCandidate(data.message);
 				break;
 			}
@@ -132,8 +140,9 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	#sendWSMessage(type, message) {
-		if (this.signalingWs.readyState === WebSocket.OPEN) {
-			this.signalingWs.send(JSON.stringify({ type, message }));
+		const { signalingWs } = this;
+		if (signalingWs.readyState === signalingWs.OPEN) {
+			signalingWs.send(JSON.stringify({ type, message }));
 		}
 	}
 
