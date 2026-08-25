@@ -23,12 +23,9 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
-		this.signalingWs.addEventListener("open", async () => {
-			await this.setLocalDescription();
-			this.#sendWSMessage("offer", this.localDescription);
-		});
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
+		this.addEventListener("negotiationneeded", this.#onNegotiationNeeded.bind(this));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
@@ -46,37 +43,32 @@ export default class ClientPeer extends RTCPeerConnection {
 		ClientPeer.#SetRemoteControlMode(true);
 	}
 
+	async #onNegotiationNeeded() {
+		await this.setLocalDescription();
+		this.#sendWSMessage("offer", this.localDescription);
+	}
+
 	#initializeDataChannels() {
 		pointerMovementChannel = this.createDataChannel("pointer-movement", {
 			ordered: false,
-			maxRetransmits: 0,
-			negotiated: true,
-			id: 0
+			maxRetransmits: 0
 		});
 
 		pointerClickChannel = this.createDataChannel("pointer-click", {
-			ordered: true,
-			negotiated: true,
-			id: 1
+			ordered: true
 		});
 
 		pointerScrollChannel = this.createDataChannel("pointer-scroll", {
 			ordered: false,
-			maxRetransmits: 0,
-			negotiated: true,
-			id: 2
+			maxRetransmits: 0
 		});
 
 		keyboardTypeChannel = this.createDataChannel("keyboard-type", {
-			ordered: true,
-			negotiated: true,
-			id: 3
+			ordered: true
 		});
 
 		clipboardSyncChannel = this.createDataChannel("clipboard-sync", {
-            ordered: true,
-            negotiated: true,
-            id: 4
+            ordered: true
         });
 
 		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard.writeText(data));
