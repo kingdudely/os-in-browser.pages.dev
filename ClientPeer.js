@@ -41,6 +41,8 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	async #onNegotiationNeeded() {
+		if (this.signalingState !== "stable") return;
+
 		await this.setLocalDescription();
 		this.#sendWSMessage("offer", this.localDescription);
 	}
