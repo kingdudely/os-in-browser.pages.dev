@@ -22,7 +22,11 @@ export default class ClientPeer extends RTCPeerConnection {
 		super(ClientPeer.#Init);
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
-		// this.signalingWs.addEventListener("open", this.#onNegotiationNeeded.bind(this));
+		this.signalingWs.addEventListener("open", () => {
+			this.addTransceiver("video", {
+				direction: "recvonly"
+			});
+		});
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
@@ -32,10 +36,6 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
 		this.#initializeDataChannels();
-
-		this.addTransceiver("video", { // starts negotiation, i think
-			direction: "recvonly"
-		});
 
 		ClientPeer.#SetRemoteControlMode(true);
 	}
