@@ -168,7 +168,7 @@ export default class ClientPeer extends RTCPeerConnection {
 
 	#sendWSMessage(type, message) {
 		const { signalingWs } = this;
-		console.log(type, message, signalingWs.readyState)
+		console.log(type, message, signalingWs.readyState, signalingWs.OPEN);
 		if (signalingWs.readyState === signalingWs.OPEN) {
 			signalingWs.send(JSON.stringify({ type, message }));
 		}
