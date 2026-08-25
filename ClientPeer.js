@@ -31,11 +31,11 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
+		this.#initializeDataChannels();
+
 		this.addTransceiver("video", { // starts negotiation, i think
 			direction: "recvonly"
 		});
-
-		this.#initializeDataChannels();
 
 		ClientPeer.#SetRemoteControlMode(true);
 	}
