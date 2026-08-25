@@ -23,22 +23,15 @@ export default class ClientPeer extends RTCPeerConnection {
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
 		this.signalingWs.addEventListener("open", () => {
-			console.log("WS OPEN");
-
-			const transceiver = this.addTransceiver("video", {
+			this.addTransceiver("video", {
 				direction: "recvonly"
 			});
-
-			console.log("TRANSCEIVER ADDED", transceiver);
 		});
 		this.signalingWs.addEventListener("message", this.#onTrickleICEMessage.bind(this));
 		this.signalingWs.addEventListener("close", () => clearInterval(pingInterval));
 
 		this.addEventListener("track", ClientPeer.#OnTrack.bind(ClientPeer));
-		this.addEventListener("negotiationneeded", () => {
-			console.log("NEGOTIATION NEEDED", this.signalingState);
-			this.#onNegotiationNeeded();
-		});
+		this.addEventListener("negotiationneeded", this.#onNegotiationNeeded.bind(this));
 		this.addEventListener("connectionstatechange", this.#onConnectionStateChange.bind(this));
 		this.addEventListener("icecandidate", this.#onICECandidate.bind(this));
 
@@ -48,11 +41,31 @@ export default class ClientPeer extends RTCPeerConnection {
 	}
 
 	async #onNegotiationNeeded() {
-		if (this.signalingState !== "stable") return;
+		console.log(
+			"NEGOTIATION NEEDED",
+			"signalingState:", this.signalingState,
+			"connectionState:", this.connectionState
+		);
 
-		await this.setLocalDescription();
-		this.#sendWSMessage("offer", this.localDescription);
+		if (this.signalingState !== "stable") {
+			console.warn("Skipping negotiation because state is", this.signalingState);
+			return;
+		}
+
+		try {
+			const offer = await this.createOffer();
+			console.log("CLIENT OFFER CREATED", offer.sdp);
+
+			await this.setLocalDescription(offer);
+			console.log("CLIENT LOCAL DESCRIPTION SET");
+
+			this.#sendWSMessage("offer", this.localDescription);
+			console.log("CLIENT OFFER SENT");
+		} catch (error) {
+			console.error("CLIENT NEGOTIATION FAILED", error);
+		}
 	}
+
 
 	#initializeDataChannels() {
 		// maybe remove negotiated, idk
@@ -155,6 +168,7 @@ export default class ClientPeer extends RTCPeerConnection {
 
 	#sendWSMessage(type, message) {
 		const { signalingWs } = this;
+		console.log(type, message, signalingWs.readyState)
 		if (signalingWs.readyState === signalingWs.OPEN) {
 			signalingWs.send(JSON.stringify({ type, message }));
 		}
