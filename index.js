@@ -45,12 +45,6 @@ const runnerListEntryTemplate = document.getElementById("runner-list-entry");
 refreshStatuses();
 setInterval(refreshStatuses, 1000);
 
-document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'visible') {
-		navigator.wakeLock?.request('screen');
-	}
-});
-
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
 

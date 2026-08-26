@@ -82,7 +82,7 @@ export default class ClientPeer extends RTCPeerConnection {
             id: 4
         });
 
-		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard.writeText(data));
+		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard?.writeText(data).catch(console.error));
 	}
 
 	#onConnectionStateChange() {
@@ -111,7 +111,7 @@ export default class ClientPeer extends RTCPeerConnection {
 			};
 
 			default: {
-				console.warn(`Unknown connection state: ${connectionState}`);
+				console.error(`Unknown connection state: ${connectionState}`);
 				break;
 			}
 		}
@@ -141,7 +141,7 @@ export default class ClientPeer extends RTCPeerConnection {
 			case "ping": break;
 
 			default: {
-				console.warn(`Unknown packet type: ${data.type}`);
+				console.error(`Unknown packet type: ${data.type}`);
 				break;
 			}
 		}
@@ -156,7 +156,7 @@ export default class ClientPeer extends RTCPeerConnection {
 
 	static #OnTrack(event) {
 		screenshare.srcObject = event.streams[0];
-		screenshare.play().catch(console.warn);
+		screenshare.play().catch(console.error);
 	}
 
 	static #SetRemoteControlMode(isInRemoteControlMode) {
@@ -231,7 +231,7 @@ function onKeyButtonEvent(isDown, event) {
 	if (isDown) triggerImmersiveMode();
 
 	if (!(event.code in codeMap)) {
-		console.warn(`"${event.code}" does not have a corresponding value in code-map.json`);
+		console.error(`"${event.code}" does not have a corresponding value in code-map.json`);
 		return;
 	}
 
@@ -252,29 +252,27 @@ function onScroll(event) {
 	pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 }
 
-// try catch not just catch() because what if the member doesn't exist?
-async function triggerImmersiveMode() {
+function triggerImmersiveMode() {
+	navigator.wakeLock?.request("screen").catch(() => {});
+
 	if (!document.pointerLockElement) {
-		try {
-			await document.body.requestPointerLock({ unadjustedMovement: true });
-		} catch {};
+		document.body.requestPointerLock({ unadjustedMovement: true }).catch(() => {});
 	}
 
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		try {
-			await document.body.requestFullscreen({ navigationUI: "hide", keyboardLock: "browser" });
-		} catch {}
-
-		try {
-			await navigator.keyboard.lock();
-		} catch {}
+		document.body.requestFullscreen({
+			navigationUI: "hide",
+			keyboardLock: "browser"
+		}).catch(() => {});
 	}
+
+	navigator.keyboard?.lock().catch(() => {});
 }
 
 async function syncClipboard() {
 	if (clipboardSyncChannel?.readyState !== "open" || !document.hasFocus()) return;
-	const currentClipboardValue = await navigator.clipboard.readText();
-	if (currentClipboardValue !== lastClipboardValue) {
+	const currentClipboardValue = await navigator.clipboard?.readText().catch(console.error);
+	if (currentClipboardValue != null && currentClipboardValue !== lastClipboardValue) {
 		lastClipboardValue = currentClipboardValue;
 		clipboardSyncChannel.send(currentClipboardValue);
 	}
