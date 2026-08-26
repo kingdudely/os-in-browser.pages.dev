@@ -258,7 +258,7 @@ function triggerImmersiveMode() {
 	syncClipboard(); // maybe add check to see if they have onclipboardchange or not?
 
 	if (!document.pointerLockElement) {
-		document.body.requestPointerLock?.({ unadjustedMovement: true }).catch(() => document.body.requestPointerLock({}));
+		document.body.requestPointerLock?.({ unadjustedMovement: true }).catch(() => document.body.requestPointerLock({}).catch(console.error));
 	}
 
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
@@ -267,10 +267,10 @@ function triggerImmersiveMode() {
 			keyboardLock: "browser"
 		}).catch(() => document.body.requestFullscreen({
 			navigationUI: "hide"
-		}).catch(() => document.body.requestFullscreen({})));
+		}).catch(() => document.body.requestFullscreen({}).catch(console.error)));
 	}
 
-	navigator.keyboard?.lock();
+	navigator.keyboard?.lock().catch(console.error);
 }
 
 async function syncClipboard() {
