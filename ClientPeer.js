@@ -177,9 +177,9 @@ window.addEventListener("wheel", onScroll);
 if ("onclipboardchange" in navigator.clipboard) {
 	navigator.clipboard.addEventListener("clipboardchange", syncClipboard);
 	window.addEventListener("focus", syncClipboard);
-} else {
+} /* else {
 	setInterval(syncClipboard, 134);
-}
+} */
 
 function onPointerMove(event) {
 	if (pointerMovementChannel?.readyState !== "open") return;
@@ -253,26 +253,31 @@ function onScroll(event) {
 }
 
 function triggerImmersiveMode() {
-	navigator.wakeLock?.request("screen").catch(() => {});
+	if (!document.hasFocus()) return;
+
+	syncClipboard(); // maybe add check to see if they have onclipboardchange or not?
 
 	if (!document.pointerLockElement) {
-		document.body.requestPointerLock({ unadjustedMovement: true }).catch(() => {});
+		document.body.requestPointerLock?.({ unadjustedMovement: true }).catch(() => document.body.requestPointerLock({}));
 	}
 
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.body.requestFullscreen({
+		document.body.requestFullscreen?.({
 			navigationUI: "hide",
 			keyboardLock: "browser"
-		}).catch(() => {});
+		}).catch(() => document.body.requestFullscreen({
+			navigationUI: "hide"
+		}).catch(() => document.body.requestFullscreen({})));
 	}
 
-	navigator.keyboard?.lock().catch(() => {});
+	navigator.keyboard?.lock();
 }
 
 async function syncClipboard() {
 	if (clipboardSyncChannel?.readyState !== "open" || !document.hasFocus()) return;
-	const currentClipboardValue = await navigator.clipboard?.readText().catch(console.error);
-	if (currentClipboardValue != null && currentClipboardValue !== lastClipboardValue) {
+
+	const currentClipboardValue = await navigator.clipboard.readText().catch(console.error);
+	if (typeof(currentClipboardValue) === "string" && currentClipboardValue !== lastClipboardValue) {
 		lastClipboardValue = currentClipboardValue;
 		clipboardSyncChannel.send(currentClipboardValue);
 	}
