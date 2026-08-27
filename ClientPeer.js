@@ -18,7 +18,7 @@ export default class ClientPeer extends RTCPeerConnection {
 	#remoteDescriptionReady = Promise.withResolvers();
 
 	constructor (signalingUrl) {
-		// Pointer lock makes events added to "screenshare" element not work since document.body is the one requesting for pointer lock - a child of "window".
+		// Pointer lock makes events added to "screenshare" element not work since document.documentElement is the one requesting for pointer lock - a child of "window".
 		super(ClientPeer.#Init);
 		this.signalingWs = new WebSocket(signalingUrl, [localStorage.getItem("access_token")]);
 		const pingInterval = setInterval(() => this.#sendWSMessage("ping"), 1337);
@@ -258,19 +258,17 @@ function triggerImmersiveMode() {
 	syncClipboard(); // maybe add check to see if they have onclipboardchange or not?
 
 	if (!document.pointerLockElement) {
-		document.body.requestPointerLock?.({ unadjustedMovement: true }).catch(() => document.body.requestPointerLock({}).catch(console.error));
+		document.documentElement.requestPointerLock?.({ unadjustedMovement: true })?.catch(() => document.documentElement.requestPointerLock({})/*.catch(console.error)*/);
 	}
 
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.body.requestFullscreen?.({
+		document.documentElement.requestFullscreen?.({
 			navigationUI: "hide",
 			keyboardLock: "browser"
-		}).catch(() => document.body.requestFullscreen({
+		})?.catch(() => document.documentElement.requestFullscreen({
 			navigationUI: "hide"
-		}).catch(() => document.body.requestFullscreen({}).catch(console.error)));
+		}).catch(() => document.documentElement.requestFullscreen({})/*.catch(console.error)*/));
 	}
-
-	navigator.keyboard?.lock().catch(console.error);
 }
 
 async function syncClipboard() {

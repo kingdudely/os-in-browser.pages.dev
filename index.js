@@ -29,7 +29,7 @@ let username;
 try {
 	octokit = makeOctokit();
 	username = (await octokit.rest.users.getAuthenticated()).data.login;
-	document.body.hidden = false;
+	document.documentElement.hidden = false;
 } catch {
 	goToLogInScreen();
 }
@@ -45,11 +45,23 @@ const runnerListEntryTemplate = document.getElementById("runner-list-entry");
 refreshStatuses();
 setInterval(refreshStatuses, 1000);
 
-document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'visible') {
-		navigator.wakeLock?.request('screen');
-	}
-});
+if (typeof(navigator.wakeLock?.request) === "function") {
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') {
+			navigator.wakeLock.request('screen');
+		}
+	});
+}
+
+if (typeof(navigator.keyboard?.lock) === "function") {
+	document.addEventListener('fullscreenchange', () => {
+		if (document.fullscreenElement) {
+			navigator.keyboard.lock(); // await
+		} else {
+			navigator.keyboard.unlock();
+		}
+	});
+}
 
 document.getElementById("account-name").textContent = username;
 document.getElementById("logout-button").addEventListener("click", logOut);
