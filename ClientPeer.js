@@ -252,22 +252,58 @@ function onScroll(event) {
 	pointerScrollChannel.send(sharedBytes.subarray(0, 13));
 }
 
-function triggerImmersiveMode() {
+async function requestUntilSupported(element, methodName, optionsList) {
+	const method = element[methodName]?.bind(element);
+	if (typeof(method) !== "function") return;
+
+	for (const options of optionsList) {
+		try {
+			return await method(options);
+		} catch (error) {
+			if (error.name === "NotSupportedError") {
+				continue;
+			} else {
+				throw error;
+			}
+		}
+	}
+}
+
+async function triggerPointerLock(element) {
+	if (!document.hasFocus()) return;
+
+	return requestUntilSupported(element, "requestPointerLock", [
+		{ unadjustedMovement: true },
+		{}
+	])
+}
+
+async function triggerFullscreen(element) {
+	if (!document.hasFocus()) return;
+
+	return requestUntilSupported(element, "requestFullscreen", [
+		{
+			navigationUI: "hide",
+			keyboardLock: "browser"
+		},
+		{
+			navigationUI: "hide"
+		},
+		{}
+	])
+}
+
+async function triggerImmersiveMode() {
 	if (!document.hasFocus()) return;
 
 	syncClipboard(); // maybe add check to see if they have onclipboardchange or not?
 
 	if (!document.pointerLockElement) {
-		document.documentElement.requestPointerLock?.({ unadjustedMovement: true })?.catch(() => document.documentElement.requestPointerLock({})/*.catch(console.error)*/);
+		await triggerPointerLock(document.documentElement);
 	}
 
 	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		document.documentElement.requestFullscreen?.({
-			navigationUI: "hide",
-			keyboardLock: "browser"
-		})?.catch(() => document.documentElement.requestFullscreen({
-			navigationUI: "hide"
-		}).catch(() => document.documentElement.requestFullscreen({})/*.catch(console.error)*/));
+		await triggerFullscreen(document.documentElement);
 	}
 }
 
