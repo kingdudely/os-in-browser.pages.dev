@@ -258,7 +258,7 @@ async function requestUntilSupported(element, methodName, optionsList) {
 
 	for (const options of optionsList) {
 		try {
-			return await method(options);
+			return await method(options || {});
 		} catch (error) {
 			if (error.name === "NotSupportedError") {
 				continue;
@@ -269,41 +269,29 @@ async function requestUntilSupported(element, methodName, optionsList) {
 	}
 }
 
-async function triggerPointerLock(element) {
-	if (!document.hasFocus()) return;
-
-	return requestUntilSupported(element, "requestPointerLock", [
-		{ unadjustedMovement: true },
-		{}
-	])
-}
-
-async function triggerFullscreen(element) {
-	if (!document.hasFocus()) return;
-
-	return requestUntilSupported(element, "requestFullscreen", [
-		{
-			navigationUI: "hide",
-			keyboardLock: "browser"
-		},
-		{
-			navigationUI: "hide"
-		},
-		{}
-	])
-}
-
 async function triggerImmersiveMode() {
 	if (!document.hasFocus()) return;
 
 	syncClipboard(); // maybe add check to see if they have onclipboardchange or not?
 
-	if (!document.pointerLockElement) {
-		await triggerPointerLock(document.documentElement);
+	if (!document.pointerLockElement && "requestPointerLock" in Element.prototype) {
+		await requestUntilSupported(document.documentElement, "requestPointerLock", [
+			{ unadjustedMovement: true },
+			{}
+		])
 	}
 
-	if (document.fullscreenEnabled && !document.fullscreenElement) {
-		await triggerFullscreen(document.documentElement);
+	if (document.fullscreenEnabled && !document.fullscreenElement && "requestFullscreen" in Element.prototype) {
+		await requestUntilSupported(document.documentElement, "requestFullscreen", [
+			{
+				navigationUI: "hide",
+				keyboardLock: "browser"
+			},
+			{
+				navigationUI: "hide"
+			},
+			{}
+		])
 	}
 }
 
