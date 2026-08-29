@@ -82,7 +82,10 @@ export default class ClientPeer extends RTCPeerConnection {
             id: 4
         });
 
-		clipboardSyncChannel.addEventListener("message", ({ data }) => navigator.clipboard?.writeText(data).catch(console.error));
+		clipboardSyncChannel.addEventListener("message", ({ data }) => {
+			if (typeof(navigator.clipboard?.writeText) !== "function") return;
+			navigator.clipboard.writeText(data);
+		});
 	}
 
 	#onConnectionStateChange() {
